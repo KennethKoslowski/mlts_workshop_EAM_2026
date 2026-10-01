@@ -1,0 +1,40 @@
+project:
+  type: default
+
+execute:
+  freeze: auto
+echo: false
+warning: false
+message: false
+comment: ""
+
+format:
+  revealjs:
+    theme: white
+    slide-number: true
+    embed-resources: true
+    hash: true
+    navigation-mode: linear
+    controls: false
+    progress: true
+    width: 1600
+    height: 900
+    center: false
+    smaller: true
+    code-block-height: "100%"
+    code-copy: false
+    code-overflow: wrap
+    code-line-numbers: false
+    chalkboard: false
+    incremental: false
+    toc: false
+    fig-width: 7
+    fig-height: 4.5
+    fig-align: center
+    fig-dpi: 300
+    
+
+css: styles.css
+bibliography: references/bibliography.bib
+csl: references/apa.csl
+reference-location: section

@@ -1,0 +1,1555 @@
+
+# Conceptual Foundations of Dynamic Structural Equation Modeling
+
+## Example Data For Illustrations
+
+:::: {.columns}
+
+::: {.column width="47.5%"}
+
+
+* Data from a study by @Bolzenkoetter2024
+* Initial study investigated the effect of a detached mindfulness intervention on repetitive negative thinking (RNT) and affect
+  * *N* = 100 participants engaged in a 5-day long baseline phase with ESM assessment, followed by a 5-day intervention phase
+  * Intervention was either (0) active control ("normal" mindfulness exercises) or (1) detached mindfulness exercise
+
+![](./img/bolzen_study.png){width="100%"}
+
+* Found effect of mindfulness intervention and active control on positive affect, negative affect and RNT
+
+:::
+
+::: {.column width="5%"}
+
+:::
+
+::: {.column width="47.5%"}
+
+* We will be investigating the temporal dynamics of positive affect in the workshop
+
+```{r, echo = F}
+library(dplyr)
+library(ggplot2)
+
+# load the data: Somehow the root is different if we render the whole document...
+load(file = "downloaded_data/bolzen.rda")
+
+# rescale item:
+hist(bolzen$posaff, main = "Positive Affect", xlab = NULL)
+```
+
+#### Data Preparation
+
+<!-- * To prepare the data, run the R script [`bolzen_prepare.R`](./live_sessoin/bolzen_prepare.R) -->
+* If you just want to follow along with the slides, that's also fine!
+
+:::
+::::
+
+---
+
+## Common Ground: Two-Level AR(1) using `lme4`
+
+
+::: {.vspace}
+:::
+
+:::: {.columns}
+
+::: {.column width="40%"}
+
+
+#### Decomposition of Between- and Within-level
+
+$$
+Y_{it}^{pmc} = Y_{it} - \overline{Y_i}
+$$
+
+$Y_{it}$ is centered at the observed person mean!
+
+
+::: {.vspace}
+:::
+
+#### Within-level model
+
+$$
+Y_{it} = \mu_i + \phi_i Y_{i(t-1)}^{pmc} + \zeta_{it} \\
+\zeta_{it} \sim \operatorname{N}(0, \sigma_{\zeta}^2)
+$$ 
+
+::: {.vspace}
+:::
+
+#### Between-level model
+
+$$
+\begin{matrix}
+\mu_i  = \gamma_{\mu}  + \upsilon_{\mu i} \\
+\phi_i = \gamma_{\phi} + \upsilon_{\phi i}
+\end{matrix}
+$$ 
+
+$$
+\text{with}\ \mathbf{\upsilon} \sim \operatorname{MVN}(\mathbf{0},\mathbf{\Sigma})
+$$ 
+
+
+:::
+
+::: {.column width="10%"}
+:::
+
+::: {.column width="50%"}
+
+```{tikz}
+%| label: lme4-ar1
+%| echo: false
+%| fig-width: 3
+%| fig-height: 3
+%| out-width: "80%"
+\newlength{\Radius}
+\setlength\Radius{4em}
+\usetikzlibrary{shapes, positioning, calc, decorations.markings, chains, scopes}
+\begin{tikzpicture}[
+    auto, > = latex, align=center,
+  	latent/.style = {
+  	  circle, draw, thick, inner sep = 2pt, minimum width = \Radius
+  	},
+  	manifest/.style = {
+  	  rectangle, draw, thick, inner sep = 0pt, minimum size = \Radius/1.6
+  	},
+  	intercept/.style = {
+  	  regular polygon,regular polygon sides = 3, draw, thick,
+  	  inner sep = 0pt, minimum size = \Radius
+  	},
+  	mean/.style = {
+  	  regular polygon, regular polygon sides = 3, draw, thick,
+  	  inner sep = 0pt, minimum size = 8mm
+  	},
+  	path/.style = {
+  	  arrows = ->, thick, > = {stealth[]}
+  	},
+  	error/.style = {
+  	  circle, draw = none, fill = none, thick,
+  	  inner sep = 0pt, minimum size = 5mm
+  	},
+  	var/.style = {
+  	  <->, thick, > = {stealth[]}, bend right = 270, looseness = 2
+  	},
+  	cov/.style = {
+  	  <->, thick, > = {stealth[]}, bend right = 300
+  	},
+  	% style to add a circle in the middle of a path
+    random/.style = {
+      postaction = {
+        decorate, decoration = {
+          markings,
+          mark = at position .5 with {
+            \draw[fill = black] circle[radius = 2pt];
+          }
+        }
+      }
+    },
+    random_cl/.style = {
+      postaction = {decorate, decoration = {
+        markings,
+        mark = at position .2 with {
+          \draw[fill = black] circle[radius = 2pt];}
+        }
+      }
+    },
+  	]
+
+    % draw decomposition
+    \node  [manifest]  (y1t)  {$Y_{it}$};
+    \node  [latent]  (y1wt)  [above = 4em of y1t]  {$Y_{it}^{pmc}$};
+    \node  [latent]  (mu1)  [below = 4em of y1t]  {$\overline{Y_{i}}$};
+    
+    \node  [coordinate] (c_decomp1) at ($(y1wt)!0.5!(y1wt)$) {};
+
+    % draw paths
+    \draw  [path]  (y1wt)  to node  []  {}  (y1t);
+    \draw  [path]  (mu1)  to node  []  {}  (y1t);
+    
+    
+    % within-level model
+    \node  [latent]  (y1wt-1) [right = 2.5em of y1wt] {$Y_{i(t-1)}^{pmc}$};
+    \node  [latent]  (y1wt)  [right = 5em of y1wt-1]  {$Y_{it}^{pmc}$};
+    \node  [latent]  (zeta1t)  [right = 2.5em of y1wt]  {$\zeta_{it}$};% draw paths
+    \draw  [path]  (zeta1t)  to node  []  {}  (y1wt);
+    
+    \draw  [path, postaction = random]  (y1wt-1)  to node  []  {$\phi_{i}$}  (y1wt);
+    \draw  [var]  (zeta1t.30)  to node  []  {$\sigma^2_{\zeta}$}  (zeta1t.330);
+    
+    
+    % between-level model
+    % center the between-level model below the within-level model,
+    % at the height of mu1
+    \coordinate  (within-mid)  at  ($(y1wt-1)!0.5!(zeta1t)$);
+    \coordinate  (between-mid)  at  (within-mid |- mu1);
+    \node  [latent]  (mu_1)  at  ($(between-mid) + (-2.5em, 0)$)  {$\overline{Y_{i}}$};
+    \node  [latent]  (phi1_11)  [right = 1em of mu_1]  {$\phi_{i}$};
+
+
+
+    \node  [coordinate]  (c1)  [above = 2em of mu_1]  {};
+    \node  [coordinate]  (c2)  [above = 2em of phi1_11]  {}; \draw  [path]  (c1)  to node  []  {}  (mu_1);
+    \draw  [path]  (c2)  to node  []  {}  (phi1_11); \draw  [thick]  (c1)  --  (c2);
+    
+        \node  [draw=none, above = 3em of c_decomp1, inner sep=1pt, text height=1.5ex, text depth=0.3ex] (decomp) {Decomposition};
+    \node  [draw=none, above = 3em of within-mid, inner sep=1pt, text height=1.5ex, text depth=0.3ex] (decomp) {Within-level model};
+    \node  [draw=none, above = 5em of between-mid, inner sep=1pt, text height=1.5ex, text depth=0.3ex] (decomp) {Between-level model};
+        
+  
+\end{tikzpicture}
+```
+
+* Individuals differ in their
+  * stable person mean
+  * autoregressive effect (dynamics)
+* Residuals on the within-level (*innovations*, $\zeta_{it}$) are assumed to be i.i.d
+
+:::
+
+::::
+
+---
+
+## Model Estimation
+
+:::: {.columns}
+
+::: {.column width = "50%"}
+
+```{r echo=TRUE, eval=TRUE}
+library(dplyr)
+library(lme4)
+
+# create lagged variable for lme4
+bolzen_baseline <- bolzen %>%
+  filter(phase == "b") %>% # select baseline phase
+  group_by(id) %>%
+  mutate(
+    posaff_pmc = posaff - mean(posaff, na.rm = T),
+    posaff_pmc_lag1 = lag(posaff_pmc)
+  )
+
+# model in lme4
+lme4_fit1 <- lmer(
+  posaff ~ 1 + posaff_pmc_lag1 +
+    (1 + posaff_pmc_lag1 | id),
+  data = bolzen_baseline
+)
+```
+
+* We need to create a lagged variable to use as predictor and center it at the person mean
+* As `lme4` does not allow `NA` in the predictor, the first observation for every individual is dropped
+
+:::
+
+::: {.column width="5%"}
+:::
+
+::: {.column width="45%"}
+
+
+```{r echo=TRUE, eval=TRUE}
+summary(lme4_fit1)
+```
+
+:::
+::::
+
+---
+
+## Model Results I: Between-person level
+
+```{r echo=FALSE, eval = TRUE}
+# get model coefficients
+gamma0_mu <- fixef(lme4_fit1)["(Intercept)"]
+gamma0_phi <- fixef(lme4_fit1)["posaff_pmc_lag1"]
+vc <- VarCorr(lme4_fit1)
+sigma_mu <- attr(vc$id, "stddev")["(Intercept)"]
+sigma_phi <- attr(vc$id, "stddev")["posaff_pmc_lag1"]
+cor_mu_phi <- attr(vc$id, "correlation")["(Intercept)", "posaff_pmc_lag1"]
+sigma_zeta <- attr(vc, "sc")
+```
+
+:::: {.columns}
+
+::: {.column width = "50%"}
+
+<!-- $$ -->
+<!-- \begin{matrix} -->
+<!-- \gamma_{\mu} =& `r gamma0_mu` \\ -->
+<!-- \phi_i =& `r gamma0_phi` -->
+<!-- \end{matrix} -->
+<!-- $$ -->
+<!-- $$ -->
+<!-- \begin{matrix} -->
+<!-- \sigma_{\upsilon_{\mu i}} = `r sigma_mu` \\ -->
+<!-- \sigma_{\upsilon_{\phi i}} = `r sigma_phi` \\ -->
+<!-- \rho_{\upsilon_{\mu i}, \upsilon_{\phi i}} = `r cor_mu_phi` \\ -->
+<!-- \sigma_{\zeta} = `r sigma_zeta` -->
+<!-- \end{matrix} -->
+<!-- $$ -->
+
+
+$$
+Y_{it} = (`r round(gamma0_mu,2)` + \upsilon_{\mu i}) + (`r round(gamma0_phi,2)` + \upsilon_{\phi i}) Y_{i(t-1)}^{pmc} + \zeta_{it}
+$$
+
+$$
+\begin{aligned}
+\upsilon_{\mu i} &\sim \operatorname{N}(0, `r round(sigma_mu^2,2)`) \\
+\upsilon_{\phi i} &\sim \operatorname{N}(0, `r round(sigma_phi^2,2)`) \\
+\rho_{\mu_i, \phi_i} &= `r round(cor_mu_phi,2)`
+\end{aligned}
+$$
+
+```{r}
+#| echo: false
+#| eval: true
+#| warning: false
+#| out-width: "100%"
+#| fig-align: center
+
+# fixed effects
+fe <- fixef(lme4_fit1)
+
+# random effects (deviations from fixed effects), combined into per-id intercept/slope
+re <- ranef(lme4_fit1)$id
+coefs <- coef(lme4_fit1)$id  # this already gives fixed + random per id
+coefs$id <- rownames(coefs)
+names(coefs)[1:2] <- c("intercept", "slope")
+
+# data range for drawing lines (use actual range of the predictor)
+x_range <- range(bolzen_baseline$posaff_pmc_lag1, na.rm = TRUE)
+
+ggplot() +
+  # individual lines
+  geom_abline(
+    data = coefs,
+    aes(intercept = intercept, slope = slope, group = id),
+    color = "grey70", linewidth = 0.3, alpha = 0.6
+  ) +
+  # fixed-effect (average) line
+  geom_abline(
+    intercept = fe[1], slope = fe[2],
+    color = "green4", linewidth = 1.5
+  ) +
+  xlim(x_range) +
+  ylim(range(bolzen_baseline$posaff, na.rm = TRUE)) +
+  labs(
+    x = "Positive affect (lag 1, person-mean centered)",
+    y = "Positive affect",
+    title = "Individual (grey) vs. fixed-effect (green) slopes"
+  ) +
+  theme_minimal(base_size = 16) +
+  theme(plot.title = element_text(size = 16))
+```
+
+
+:::
+
+::: {.column width="5%"}
+:::
+
+::: {.column width="45%"}
+
+
+```{r echo=TRUE, eval=TRUE}
+summary(lme4_fit1)
+```
+
+:::
+::::
+
+
+---
+
+## Model Results II: Within-person level
+
+
+:::: {.columns}
+
+::: {.column width = "50%"}
+
+$$
+Y_{it} = (`r round(gamma0_mu,2)` + \upsilon_{\mu i}) + (`r round(gamma0_phi,2)` + \upsilon_{\phi i}) Y_{i(t-1)}^{pmc} + \zeta_{it}
+$$
+
+$$
+\zeta_{it} \sim \operatorname{N}(0, `r round(sigma_zeta^2,2)`)
+$$
+
+* Innovations $\zeta_{it}$ are assumed to come from the same distribution for all individuals
+
+```{r}
+#| echo: false
+#| eval: true
+#| warning: false
+#| out-width: "100%"
+#| fig-height: 4.5
+#| fig-align: center
+# model in lme4 with nas
+lme4_fit1 <- lmer(
+  posaff ~ 1 + posaff_pmc_lag1 +
+    (1 + posaff_pmc_lag1 | id),
+  data = bolzen_baseline,
+  na.action = na.exclude
+)
+bolzen_baseline$fitted <- predict(lme4_fit1)
+
+# pick a handful of individuals to keep it readable
+set.seed(14)
+sample_ids <- sample(unique(bolzen_baseline$id), 4)
+
+bolzen_baseline %>%
+  filter(id %in% sample_ids) %>%
+  ggplot(aes(x = obs_counter, y = posaff)) +   # replace `time` with your actual time/obs-index variable
+  geom_line(color = "grey40") +
+  geom_point(color = "grey40", size = 1) +
+  geom_line(aes(y = fitted), color = "steelblue", linewidth = 0.8) +
+  facet_wrap(~ id, ncol = 2, nrow = 3) +
+  labs(y = "Positive affect", x = "Time",
+       title = paste0("Observed (grey) vs. predicted (blue) positive affect for ", length(sample_ids),  " IDs")) +
+  theme_minimal(base_size = 16) +
+  theme(plot.title = element_text(size = 16))
+```
+
+
+:::
+
+::: {.column width="5%"}
+:::
+
+::: {.column width="45%"}
+
+
+```{r echo=TRUE, eval=TRUE}
+summary(lme4_fit1)
+```
+
+:::
+::::
+
+
+---
+
+## Two-Level AR(1) using `mlts`
+
+
+::: {.vspace}
+:::
+
+:::: {.columns}
+
+::: {.column width="40%"}
+
+
+#### Decomposition of Between- and Within-level
+
+$$
+Y_{it}^{w} = Y_{it} - \mu_{i}
+$$
+
+$Y_{it}$ is centered at the **latent** person mean!
+
+
+::: {.vspace}
+:::
+
+#### Within-level model
+
+$$
+Y_{it}^w = \phi_i Y_{i(t-1)}^{w} + \zeta_{it} \\
+\zeta_{it} \sim N(0, \sigma_{\zeta,i}^2)
+$$ 
+
+::: {.vspace}
+:::
+
+#### Between-level model
+
+$$
+\begin{matrix}
+\mu_i  = \gamma_{\mu}  + \upsilon_{\mu i} \\
+\phi_i = \gamma_{\phi} + \upsilon_{\phi i} \\
+ln(\sigma_{\zeta i}^2) = \gamma_{ln(\sigma^2_\zeta)} + \upsilon_{ln(\sigma^2_{\zeta,i})}
+\end{matrix}
+$$ 
+
+$$
+\text{with}\ \mathbf{\upsilon} \sim \operatorname{MVN}(\mathbf{0},\mathbf{\Sigma})
+$$ 
+
+
+:::
+
+::: {.column width="10%"}
+:::
+
+::: {.column width="50%"}
+
+```{tikz}
+%| label: mlts-ar1
+%| echo: false
+%| fig-width: 3
+%| fig-height: 3
+%| out-width: "100%"
+\newlength{\Radius}
+\setlength\Radius{4em}
+\usetikzlibrary{shapes, positioning, calc, decorations.markings, chains, scopes}
+\begin{tikzpicture}[
+    auto, > = latex, align=center,
+  	latent/.style = {
+  	  circle, draw, thick, inner sep = 2pt, minimum width = \Radius
+  	},
+  	manifest/.style = {
+  	  rectangle, draw, thick, inner sep = 0pt, minimum size = \Radius/1.6
+  	},
+  	intercept/.style = {
+  	  regular polygon,regular polygon sides = 3, draw, thick,
+  	  inner sep = 0pt, minimum size = \Radius
+  	},
+  	mean/.style = {
+  	  regular polygon, regular polygon sides = 3, draw, thick,
+  	  inner sep = 0pt, minimum size = 8mm
+  	},
+  	path/.style = {
+  	  arrows = ->, thick, > = {stealth[]}
+  	},
+  	error/.style = {
+  	  circle, draw = none, fill = none, thick,
+  	  inner sep = 0pt, minimum size = 5mm
+  	},
+  	var/.style = {
+  	  <->, thick, > = {stealth[]}, bend right = 270, looseness = 2
+  	},
+  	cov/.style = {
+  	  <->, thick, > = {stealth[]}, bend right = 300
+  	},
+  	% style to add a circle in the middle of a path
+    random/.style = {
+      postaction = {
+        decorate, decoration = {
+          markings,
+          mark = at position .5 with {
+            \draw[fill = black] circle[radius = 2pt];
+          }
+        }
+      }
+    },
+    random_cl/.style = {
+      postaction = {decorate, decoration = {
+        markings,
+        mark = at position .2 with {
+          \draw[fill = black] circle[radius = 2pt];}
+        }
+      }
+    },
+  	]
+
+    % draw decomposition
+    \node  [manifest]  (y1t)  {$Y_{it}$};
+    \node  [latent]  (y1wt)  [above = 4em of y1t]  {$Y_{it}^{w}$};
+    \node  [latent]  (mu1)  [below = 4em of y1t]  {$\mu_{i}$};
+    
+    \node  [coordinate] (c_decomp1) at ($(y1wt)!0.5!(y1wt)$) {};
+
+    % draw paths
+    \draw  [path]  (y1wt)  to node  []  {}  (y1t);
+    \draw  [path]  (mu1)  to node  []  {}  (y1t);
+    
+    
+    % within-level model
+    \node  [latent]  (y1wt-1) [right = 2.5em of y1wt] {$Y_{i(t-1)}^{w}$};
+    \node  [latent]  (y1wt)  [right = 5em of y1wt-1]  {$Y_{it}^{w}$};
+    \node  [latent]  (zeta1t)  [right = 2.5em of y1wt]  {$\zeta_{it}$};% draw paths
+    \draw  [path]  (zeta1t)  to node  []  {}  (y1wt);
+    
+    \draw  [path, postaction = random]  (y1wt-1)  to node  []  {$\phi_{i}$}  (y1wt);
+    \draw  [var, postaction = random]  (zeta1t.30)  to node  []  {$\sigma^2_{\zeta}$}  (zeta1t.330);
+    
+    
+    % between-level model
+    % center the between-level model below the within-level model,
+    % at the height of mu1
+    \coordinate  (within-mid)  at  ($(y1wt-1)!0.5!(zeta1t)$);
+  \coordinate  (between-mid)  at  (within-mid |- mu1);
+    \node  [latent]  (phi1_11)  at (between-mid)  {$\phi_{i}$};
+\node  [latent]  (mu_1)  [left = 1em of phi1_11]  {$\mu_{i}$};
+\node  [latent]  (lnsigma2_1)  [right = 1em of phi1_11]  {ln($\sigma^2_{\zeta, i}$)};
+
+
+
+    \node  [coordinate]  (c1)  [above = 2em of mu_1]  {};
+    \node  [coordinate]  (c2)  [above = 2em of phi1_11]  {}; 
+    \node  [coordinate]  (c3)  [above = 2em of lnsigma2_1]  {}; 
+    \draw  [path]  (c1)  to node  []  {}  (mu_1);
+    \draw  [path]  (c2)  to node  []  {}  (phi1_11); 
+    \draw  [path]  (c3)  to node  []  {}  (lnsigma2_1); 
+    \draw  [thick]  (c1)  --  (c3);
+    
+        \node  [draw=none, above = 3em of c_decomp1, inner sep=1pt, text height=1.5ex, text depth=0.3ex] (decomp) {Decomposition};
+    \node  [draw=none, above = 3em of within-mid, inner sep=1pt, text height=1.5ex, text depth=0.3ex] (decomp) {Within-level model};
+    \node  [draw=none, above = 5em of between-mid, inner sep=1pt, text height=1.5ex, text depth=0.3ex] (decomp) {Between-level model};
+        
+  
+\end{tikzpicture}
+```
+
+* Individuals differ in their
+  * stable person mean
+  * autoregressive effect (dynamics)
+  * innovation variances
+
+:::
+
+::::
+
+
+---
+
+## Model Building
+
+```{r}
+#| include: false
+options(width = 120)  # increase from default ~80
+```
+
+
+
+```{r}
+#| echo: true
+#| eval: true
+
+library(mlts)
+
+# model in mlts
+mlts_m1 <- mlts_model(q = 1, max_lag = 1)
+mlts_m1[, c("Model", "Level", "Type", "Param_Label", "isRandom")] # inspect
+```
+
+* `mlts_model()` returns a data frame with rows corresponding to parameters in the model (parameter names follow DSEM convention)
+  * Our AR(1) model has 9 parameters: 3 fixed effects, 3 random effect SDs, and 3 correlations between random effects
+* The argument `q` controls the number of time-varying constructs
+* The argument `max_lag` controls the maximum number of autoregressive effects (maximum is 3)
+
+
+
+
+## Helper Functions for Model Building
+
+:::: {.columns}
+
+::: {.column width = "40%"}
+
+* `mlts_paths()` draws a path diagram of the model using the package `diagram`
+
+```{r}
+#| echo: true
+#| eval: false
+
+mlts_paths(mlts_m1)
+```
+
+```{r}
+#| echo: false
+#| eval: true
+
+mlts_paths(mlts_m1, height = 5.5, width = 8.5, cex_b = 1.1)
+```
+
+* Alternatively, `mlts_model_paths()` draws a `tikz`-model and prints to pdf (for LaTeX users, but does currently not handle all modeling options)
+
+:::
+
+::: {.column width="10%"}
+:::
+
+::: {.column width="40%"}
+
+* `mlts_model_formula()` creates a pdf with model formula in matrix notation and prints to pdf (also keeps LaTeX code)
+
+```{r}
+#| echo: true
+#| eval: false
+
+mlts_model_formula(mlts_m1)
+```
+
+::: {.center}
+**Decomposition**
+:::
+$$
+\begin{gathered} \begin{bmatrix}
+y_{1, it} \\
+\end{bmatrix} = \begin{bmatrix}
+\mu_{1,i} \\
+\end{bmatrix}
++
+\begin{bmatrix}
+y_{1, it}^w \\
+\end{bmatrix} \end{gathered}
+$$
+
+::: {.center}
+**Within-level model**
+:::
+$$
+\begin{gathered} \begin{bmatrix}
+y_{1, it}^w \\
+\end{bmatrix} = \begin{bmatrix} \phi_{(1)11,i} \\ \end{bmatrix} \begin{bmatrix} y_{1,i(t - 1)}^w \\ \end{bmatrix} +  \begin{bmatrix} \zeta_{1, it} \\ \end{bmatrix} ,\\ 
+\text{with}~\zeta_{1,it} \sim \operatorname{N}(0, \sigma^2_{\zeta_{1},i})  \end{gathered}
+$$
+
+::: {.center}
+**Between-level model**
+:::
+$$
+\begin{gathered} \begin{bmatrix} \mu_{1,i}\\
+\phi_{(1)11,i}\\
+\ln(\sigma^2_{\zeta_{1},i})\\ \end{bmatrix} = \begin{bmatrix} \gamma_{0,\mu_{1}}\\
+\gamma_{0,\phi_{(1)11}}\\
+\gamma_{0,\ln(\sigma^2_{\zeta_{1}})}\\ \end{bmatrix} +
+  \begin{bmatrix} \upsilon_{\mu_{1},i}\\
+\upsilon_{\phi_{(1)11},i}\\
+\upsilon_{\ln(\sigma^2_{\zeta_{1}}),i}\\ \end{bmatrix} ,\\ 
+\text{with}~
+  \upsilon_{i} \sim \operatorname{MVN}(\mathbf{0}, \mathbf{\Omega})  \end{gathered}
+$$
+
+:::
+::::
+
+
+---
+
+## Model Estimation
+
+:::: {.columns}
+
+::: {.column width = "35%"}
+
+
+```{r}
+#| echo: true
+#| eval: false
+
+mlts_fit1 <- mlts_fit(
+  model = mlts_m1, # model object
+  data = bolzen,   # data set
+  id = "id",       # id variable
+  ts = "posaff",   # time series construct
+  iter = 2000      # number of MCMC iterations
+)
+```
+
+* For a simple (V)AR model, we only need to provide the model from `mlts_model()`, the data frame, an `id` variable, and the time series construct
+* The default number of MCMC iterations is 500, we set it a bit higher here to guarantee good mixing
+* The function preprocesses the data on its own and passes all model information to Stan, where the model is fit with Markov Chain Monte Carlo
+
+
+
+:::
+:::  {.column width = "10%"}
+:::
+
+::: {.column width = "55%"}
+
+
+```{r}
+#| echo: false
+#| eval: true
+
+stan_log <- readLines("./sections/02-intro_dsem/stan_log.txt")
+cat(head(stan_log, 26), sep = "\n")  # e.g. first 10 
+```
+
+
+:::
+::::
+
+  
+---
+
+## Model Results I: General Information
+
+```{r}
+#| include: false
+options(width = 120)  # increase from default ~80
+mlts_fit1 <- readRDS("sections/02-intro_dsem/mlts_fit1.rds")
+```
+
+
+:::: {.columns}
+
+::: {.column width = "35%"}
+
+* The `summary()` function shows general information about the time-series constructs and model convergence first
+  * `mlts` allows for `NA` in the time-series constructs, therefore we are using all $n = `r nrow(bolzen_baseline)`$ observations
+  * Check ESS, Rhat, and divergent transitions!
+* MCMC traceplots can be obtained using `rstan` (the backend behind `mlts`) or the package `bayesplot`, but follow internal naming as of now
+<!-- * For example, fixed effects are stored as a parameter named `gammas` -->
+
+```{r}
+#| echo: true
+#| eval: true
+#| out-width: "100%"
+#| fig-height: 3
+#| fig-align: center
+
+rstan::traceplot(mlts_fit1$stanfit,
+                 pars = "gammas")
+```
+
+:::
+:::  {.column width = "5%"}
+:::
+
+::: {.column width = "60%"}
+
+```{r}
+#| echo: true
+#| eval: false
+
+summary(mlts_fit1)
+```
+
+```{r}
+#| echo: false
+#| eval: true
+
+summary_lines <- capture.output(summary(mlts_fit1))
+cat(summary_lines[1:16], sep = "\n")  # e.g. first 10 
+cat("[...]")
+```
+
+
+:::
+::::
+
+
+--- 
+
+
+## Model Results II: Model Parameters
+
+```{r}
+#| echo: false
+#| eval: true
+
+# fixed effects
+gamma0_mu_mlts <- mlts_fit1[["pop.pars.summary"]][mlts_fit1[["pop.pars.summary"]]$Param == "mu_1", "mean"]
+gamma0_phi_mlts <- mlts_fit1[["pop.pars.summary"]][mlts_fit1[["pop.pars.summary"]]$Param == "phi(1)_11", "mean"]
+gamma0_ln_sigma_mlts <- mlts_fit1[["pop.pars.summary"]][mlts_fit1[["pop.pars.summary"]]$Param == "ln.sigma2_1", "mean"]
+
+# random effects SDs
+sigma_mu_mlts <- mlts_fit1[["pop.pars.summary"]][mlts_fit1[["pop.pars.summary"]]$Param == "sigma_mu_1", "mean"]
+sigma_phi_mlts <- mlts_fit1[["pop.pars.summary"]][mlts_fit1[["pop.pars.summary"]]$Param == "sigma_phi(1)_11", "mean"]
+sigma_ln_sigma_mlts <- mlts_fit1[["pop.pars.summary"]][mlts_fit1[["pop.pars.summary"]]$Param == "sigma_ln.sigma2_1", "mean"]
+
+# random effect cors
+cor_mu_phi_mlts <- mlts_fit1[["pop.pars.summary"]][mlts_fit1[["pop.pars.summary"]]$Param == "r_mu_1.phi(1)_11", "mean"]
+cor_mu_ln.sigma_mlts <- mlts_fit1[["pop.pars.summary"]][mlts_fit1[["pop.pars.summary"]]$Param == "r_mu_1.ln.sigma2_1", "mean"]
+cor_phi_ln.sigma_mlts <- mlts_fit1[["pop.pars.summary"]][mlts_fit1[["pop.pars.summary"]]$Param == "r_phi(1)_11.ln.sigma2_1", "mean"]
+```
+
+
+:::: {.columns}
+
+::: {.column width = "35%"}
+
+#### Within-level model
+
+$$
+Y_{it}^w = `r round(gamma0_phi_mlts, 2)` ~ Y_{i(t-1)}^{w} + \zeta_{it} \\
+\zeta_{it} \sim N(0, \underbrace{`r round(exp(gamma0_ln_sigma_mlts), 2)`}_{\text{This is exp($`r round(gamma0_ln_sigma_mlts, 3)`$)!}})
+$$ 
+
+* If innovation variance is person-specific, it needs to be on the log-scale (otherwise we could get negative values) $\rightarrow$ `ln.sigma2_1` needs to be exponentiated!
+  
+#### Between-level model (variances + correlations)
+
+:::: {.columns}
+
+::: {.column width = "50%"}
+
+
+$$
+\begin{aligned}
+\upsilon_{\mu i} &\sim \operatorname{N}(0, `r round(sigma_mu_mlts^2,2)`) \\
+\upsilon_{\phi i} &\sim \operatorname{N}(0, `r round(sigma_phi_mlts^2,2)`) \\
+\upsilon_{\ln(\sigma^2) i} &\sim \operatorname{N}(0, `r round(sigma_ln_sigma_mlts^2,2)`)
+\end{aligned}
+$$ 
+:::
+::: {.column width = "50%"}
+$$
+\left[
+\begin{array}{ccc}
+ & & \\
+`r round(cor_mu_phi_mlts, 2)` &  & \\
+`r round(cor_mu_ln.sigma_mlts, 2)` & `r round(cor_phi_ln.sigma_mlts, 2)` & \hphantom{1.0}
+\end{array}
+\right]
+$$  
+:::
+::::
+
+:::
+:::  {.column width = "5%"}
+:::
+
+::: {.column width = "60%"}
+
+```{r}
+#| echo: true
+#| eval: false
+
+summary(mlts_fit1)
+```
+
+```{r}
+#| echo: false
+#| eval: true
+#| results: asis
+
+color_nth_occurrence <- function(text, anchor, n, color = "blue") {
+  # collapse to one string so occurrence counting works across lines
+  full_text <- paste(text, collapse = "\n")
+  
+  pattern <- paste0(anchor, "\\s*\\S+")
+  matches <- gregexpr(pattern, full_text)[[1]]
+  match_lengths <- attr(matches, "match.length")
+  
+  if (length(matches) < n || matches[1] == -1) {
+    warning("Fewer than ", n, " occurrences found")
+    return(text)
+  }
+  
+  # extract the nth match
+  start <- matches[n]
+  end <- start + match_lengths[n] - 1
+  matched_str <- substr(full_text, start, end)
+  
+  # split matched string into anchor part and value part
+  value_start <- regexpr("\\S+$", matched_str)
+  anchor_part <- substr(matched_str, 1, value_start - 1)
+  value_part <- substr(matched_str, value_start, nchar(matched_str))
+  
+  colored <- paste0(anchor_part, '<span style="color:', color, ';">', value_part, '</span>')
+  
+  # rebuild the string
+  new_text <- paste0(
+    substr(full_text, 1, start - 1),
+    colored,
+    substr(full_text, end + 1, nchar(full_text))
+  )
+  
+  strsplit(new_text, "\n")[[1]]
+}
+
+
+summary_lines <- capture.output(summary(mlts_fit1))
+
+# color lines
+# summary_lines <- gsub(
+#   "(ln\\.sigma2_1\\s+)(\\S+)",
+#   '\\1<span style="color:blue;">\\2</span>',
+#   summary_lines
+# )
+
+summary_lines <- color_nth_occurrence(summary_lines, "ln\\.sigma2_1", n = 1, color = "blue")
+
+cat('<div class="cell-output cell-output-stdout">\n<pre><code>')
+cat("[...]\n")
+cat(summary_lines[10:32], sep = "\n")
+cat('</code></pre>\n</div>')
+# cat("[...]")
+```
+
+
+:::
+::::
+
+---
+
+## Helper Functions after Model Fit
+
+```{r}
+#| include: false
+mlts_fit1_pp <- readRDS("./sections/02-intro_dsem/mlts_fit1_pp.rds")
+```
+
+
+:::: {.columns}
+
+::: {.column width = "45%"}
+
+* The function `mlts_plot()` creates a forest plot of model coefficients
+* Allows for a quick check of credible intervals
+* The argument `bpe` controls the Bayesian point estimate (default is posterior mean)
+
+```{r}
+#| eval: true
+#| echo: true
+#| out-width: "100%"
+#| fig-height: 4.5
+#| fig-align: center
+
+mlts_plot(mlts_fit1, bpe = "mean")
+```
+
+
+:::
+
+
+::: {.column width = "5%"}
+
+:::
+
+
+::: {.column width = "50%"}
+
+* The function `mlts_pp_check()` plots samples of the posterior distribution of **replicated data** against the observed data
+* For the function to work, the **person-specific parameters** (i.e., random effects) need to be saved
+
+```{r}
+#| eval: false
+#| echo: true
+
+mlts_fit1_pp <- mlts_fit(..., monitor_person_pars = TRUE)
+```
+
+```{r}
+#| eval: true
+#| echo: false
+
+bolzen_mean <- mean(bolzen_baseline$posaff)
+bolzen_sd <- sd(bolzen_baseline$posaff)
+```
+
+```{r}
+#| eval: false
+#| echo: true
+mlts_pp_check(mlts_fit1_pp)
+```
+
+
+```{r}
+#| eval: true
+#| echo: false
+#| out-width: "100%"
+#| fig-height: 5
+#| fig-align: center
+
+mlts_fit1_pp_plot <- readRDS("./sections/02-intro_dsem/mlts_fit1_pp_plot.rds")
+
+mlts_fit1_pp_plot
+```
+
+
+:::
+
+::::
+
+
+---
+
+## Model Building: Adding Restrictions
+
+```{r}
+#| include: false
+options(width = 120)  # increase from default ~80
+```
+
+
+* The function `mlts_model(q = 1)` fits a model with random effects for all parameters by default
+* There are several arguments that allow to restrict certain parameters to zero
+* If we would like to fit a model with restricted innovation variances (i.e., as in `lme4`), we can request this with `mlts_model(..., fix_inno_vars = TRUE)`
+
+
+:::: {.columns}
+
+::: {.column width = "65%"}
+
+
+```{r}
+#| echo: true
+#| eval: true
+
+mlts_m2 <- mlts_model(q = 1, fix_inno_vars = TRUE)
+mlts_m2[, c("Level", "Type", "Param_Label", "isRandom")] # inspect
+
+```
+
+* This deletes the respective correlations from the model as well
+* Alternatively, the argument `ranef_zero` accepts a character vector of random effect variances that should be set to zero
+
+```{r}
+#| echo: true
+#| eval: false
+
+mlts_m2 <- mlts_model(q = 1, ranef_zero = "ln.sigma2_1")
+```
+
+* Both result in the same model object
+
+:::
+
+::: {.column width = "35%"}
+
+
+```{r}
+#| echo: true
+#| eval: false
+
+mlts_paths(mlts_m2)
+```
+
+```{r}
+#| echo: false
+#| eval: true
+#| outwidth: "80%"
+
+mlts_paths(mlts_m2, height = 5.5, width = 8.5, cex_b = 1.1)
+```
+
+:::
+
+::::
+
+
+---
+
+## Model Results with Restrictions
+
+```{r}
+#| include: false
+mlts_fit2_pp <- readRDS("./sections/02-intro_dsem/mlts_fit2_pp.rds")
+```
+
+```{r}
+#| include: false
+options(width = 120)  # increase from default ~80
+mlts_fit2 <- readRDS("./sections/02-intro_dsem/mlts_fit2.rds")
+```
+
+```{r}
+#| echo: false
+#| eval: true
+
+# fixed effects
+gamma0_mu_mlts2 <- mlts_fit2[["pop.pars.summary"]][mlts_fit2[["pop.pars.summary"]]$Param == "mu_1", "mean"]
+gamma0_phi_mlts2 <- mlts_fit2[["pop.pars.summary"]][mlts_fit2[["pop.pars.summary"]]$Param == "phi(1)_11", "mean"]
+gamma0_sigma_mlts2 <- mlts_fit2[["pop.pars.summary"]][mlts_fit2[["pop.pars.summary"]]$Param == "sigma_1", "mean"]
+
+# random effects SDs
+sigma_mu_mlts2 <- mlts_fit2[["pop.pars.summary"]][mlts_fit2[["pop.pars.summary"]]$Param == "sigma_mu_1", "mean"]
+sigma_phi_mlts2 <- mlts_fit2[["pop.pars.summary"]][mlts_fit2[["pop.pars.summary"]]$Param == "sigma_phi(1)_11", "mean"]
+
+# random effect cors
+cor_mu_phi_mlts2 <- mlts_fit2[["pop.pars.summary"]][mlts_fit2[["pop.pars.summary"]]$Param == "r_mu_1.phi(1)_11", "mean"]
+```
+
+
+:::: {.columns}
+
+::: {.column width = "35%"}
+
+#### Within-level model
+
+$$
+Y_{it}^w = `r round(gamma0_phi_mlts2, 2)` ~ Y_{i(t-1)}^{w} + \zeta_{it} \\
+\zeta_{it} \sim N(0, `r round(gamma0_sigma_mlts2^2, 2)`)
+$$ 
+
+
+  
+#### Between-level model (variances + correlations)
+
+:::: {.columns}
+
+::: {.column width = "50%"}
+
+
+$$
+\begin{aligned}
+\upsilon_{\mu i} &\sim \operatorname{N}(0, `r round(sigma_mu_mlts2^2,2)`) \\
+\upsilon_{\phi i} &\sim \operatorname{N}(0, `r round(sigma_phi_mlts2^2,2)`)
+\end{aligned}
+$$ 
+:::
+::: {.column width = "50%"}
+$$
+\left[
+\begin{array}{cc}
+ & \\
+`r round(cor_mu_phi_mlts, 2)` & \hphantom{1.0}
+\end{array}
+\right]
+$$  
+:::
+::::
+
+
+
+```{r}
+#| eval: false
+#| echo: true
+
+mlts_pp_check(mlts_fit2_pp)
+```
+
+
+
+```{r}
+#| eval: true
+#| echo: false
+#| out-width: "100%"
+#| fig-height: 4
+#| fig-align: center
+
+mlts_fit2_pp_plot <- readRDS("./sections/02-intro_dsem/mlts_fit2_pp_plot.rds")
+
+mlts_fit2_pp_plot
+```
+
+
+:::
+:::  {.column width = "2%"}
+:::
+
+::: {.column width = "60%"}
+
+```{r}
+#| echo: true
+#| eval: false
+
+summary(mlts_fit2)
+```
+
+```{r}
+#| echo: false
+#| eval: true
+
+summary_lines <- capture.output(summary(mlts_fit2))
+cat("[...]")
+cat(summary_lines[10:29], sep = "\n")  # e.g. first 10
+
+```
+
+
+:::
+::::
+
+
+
+---
+
+## Model Building: Adding Higher Lags
+
+```{r}
+#| include: false
+options(width = 120)  # increase from default ~80
+```
+
+
+* The function `mlts_model(q = 1)` fits a model with an AR(1) process by default
+* The argument `max_lag` allows to include lagged effects of higher order (maximum is 3)
+* Dynamic parameters are **random** (vary across individuals) by default and can be fixed by e.g., `fix_dynamics = TRUE` or by specifying their names in the argument `ranef_zero = ...`
+* Fitting a model with AR(2) structure and fixed innovation variances:
+
+:::: {.columns}
+
+::: {.column width = "65%"}
+
+
+```{r}
+#| echo: true
+#| eval: true
+
+mlts_m3 <- mlts_model(q = 1, max_lag = 2, fix_inno_vars = TRUE)
+mlts_m3[, c("Level", "Type", "Param_Label", "isRandom")] # inspect
+```
+
+:::
+
+::: {.column width = "35%"}
+
+
+```{r}
+#| echo: true
+#| eval: false
+
+mlts_paths(mlts_m3)
+```
+
+```{r}
+#| echo: false
+#| eval: true
+#| outwidth: "80%"
+
+mlts_paths(mlts_m3, height = 5.5, width = 8.5, cex_b = 1.1)
+```
+
+:::
+
+::::
+
+
+---
+
+## Model Results with Higher Lags
+
+```{r}
+#| include: false
+mlts_fit3_pp <- readRDS("./sections/02-intro_dsem/mlts_fit3_pp.rds")
+```
+
+```{r}
+#| include: false
+options(width = 120)  # increase from default ~80
+mlts_fit3 <- readRDS("./sections/02-intro_dsem/mlts_fit3.rds")
+```
+
+```{r}
+#| echo: false
+#| eval: true
+
+# fixed effects
+gamma0_mu_mlts3 <- mlts_fit3[["pop.pars.summary"]][mlts_fit3[["pop.pars.summary"]]$Param == "mu_1", "mean"]
+gamma0_phi1_mlts3 <- mlts_fit3[["pop.pars.summary"]][mlts_fit3[["pop.pars.summary"]]$Param == "phi(1)_11", "mean"]
+gamma0_phi2_mlts3 <- mlts_fit3[["pop.pars.summary"]][mlts_fit3[["pop.pars.summary"]]$Param == "phi(2)_11", "mean"]
+gamma0_sigma_mlts3 <- mlts_fit3[["pop.pars.summary"]][mlts_fit3[["pop.pars.summary"]]$Param == "sigma_1", "mean"]
+
+# random effects SDs
+sigma_mu_mlts3 <- mlts_fit3[["pop.pars.summary"]][mlts_fit3[["pop.pars.summary"]]$Param == "sigma_mu_1", "mean"]
+sigma_phi1_mlts3 <- mlts_fit3[["pop.pars.summary"]][mlts_fit3[["pop.pars.summary"]]$Param == "sigma_phi(1)_11", "mean"]
+sigma_phi2_mlts3 <- mlts_fit3[["pop.pars.summary"]][mlts_fit3[["pop.pars.summary"]]$Param == "sigma_phi(2)_11", "mean"]
+
+# random effect cors
+cor_mu_phi1_mlts3 <- mlts_fit3[["pop.pars.summary"]][mlts_fit3[["pop.pars.summary"]]$Param == "r_mu_1.phi(1)_11", "mean"]
+cor_mu_phi2_mlts3 <- mlts_fit3[["pop.pars.summary"]][mlts_fit3[["pop.pars.summary"]]$Param == "r_mu_1.phi(2)_11", "mean"]
+cor_phi1_phi2_mlts3 <- mlts_fit3[["pop.pars.summary"]][mlts_fit3[["pop.pars.summary"]]$Param == "r_phi(1)_11.phi(2)_11", "mean"]
+```
+
+
+:::: {.columns}
+
+::: {.column width = "38%"}
+
+#### Within-level model
+
+$$
+Y_{it}^w = `r round(gamma0_phi1_mlts3, 2)` ~ Y_{i(t-1)}^{w} + `r round(gamma0_phi2_mlts3, 2)` ~ Y_{i(t-2)}^{w} + \zeta_{it} \\
+\zeta_{it} \sim N(0, `r round(gamma0_sigma_mlts3^2, 2)`)
+$$ 
+
+
+  
+#### Between-level model (variances + correlations)
+
+:::: {.columns}
+
+::: {.column width = "50%"}
+
+
+$$
+\begin{aligned}
+\upsilon_{\mu i} &\sim \operatorname{N}(0, `r round(sigma_mu_mlts3^2,2)`) \\
+\upsilon_{\phi(1) i} &\sim \operatorname{N}(0, `r round(sigma_phi1_mlts3^2,2)`) \\
+\upsilon_{\phi(2) i} &\sim \operatorname{N}(0, `r round(sigma_phi2_mlts3^2,2)`)
+\end{aligned}
+$$ 
+:::
+::: {.column width = "50%"}
+$$
+\left[
+\begin{array}{ccc}
+ & & \\
+`r round(cor_mu_phi1_mlts3, 2)` &  & \\
+`r round(cor_mu_phi2_mlts3, 2)` & `r round(cor_phi1_phi2_mlts3, 2)` & \hphantom{1.0}
+\end{array}
+\right]
+$$  
+:::
+::::
+
+
+
+```{r}
+#| eval: false
+#| echo: true
+
+mlts_pp_check(mlts_fit3_pp)
+```
+
+
+```{r}
+#| eval: true
+#| echo: false
+#| out-width: "100%"
+#| fig-height: 4
+#| fig-align: center
+
+mlts_fit3_pp_plot <- readRDS("./sections/02-intro_dsem/mlts_fit3_pp_plot.rds")
+
+mlts_fit3_pp_plot
+```
+
+
+:::
+:::  {.column width = "2%"}
+:::
+
+::: {.column width = "60%"}
+
+```{r}
+#| echo: true
+#| eval: false
+
+summary(mlts_fit3)
+```
+
+```{r}
+#| echo: false
+#| eval: true
+
+summary_lines <- capture.output(summary(mlts_fit3))
+cat("[...]")
+cat(summary_lines[10:29], sep = "\n")  # e.g. first 10
+
+```
+
+
+:::
+::::
+
+
+
+---
+
+## Assumptions of Vector Autoregressive Models
+
+:::: {.columns}
+
+::: {.column width = "45%"}
+
+* No mean trends in the constructs, i.e., the time-series is **stationary** [@McNeish2020]
+  * Can be tested graphically or, e.g., with a linear growth model
+  * If violated, consider detrending or residual DSEM
+* Equal time intervals between measurements (otherwise, $\phi$-parameters can be biased)
+  * If violated, use `tinterval`-function to insert missing data in between measurements
+  
+```{r}
+#| echo: true
+#| eval: true
+
+head(bolzen_baseline[
+  , c("id", "timepoint", "time_window", "time_diff")])
+```
+  
+
+:::
+:::  {.column width = "5%"}
+:::
+
+::: {.column width = "50%"}
+
+```{r}
+#| echo: true
+#| eval: true
+
+# plot trend
+ggplot(aes(x = obs_counter, y = posaff),
+       data = bolzen_baseline) +
+  geom_smooth(aes(group = id),
+              method = "lm", se = FALSE,
+              color = "grey", linewidth = .5) +
+  geom_smooth(method = "lm") +
+  theme_minimal(base_size = 14) +
+  labs(y = "Positive affect", x = "(Integer) Time Point")
+```
+
+
+
+:::
+::::
+
+---
+
+## Handling Unequally Spaced Measurements
+
+:::: {.columns}
+
+::: {.column width = "35%"}
+
+* Our data structure treats the observations as if the time interval between measurements is equal
+* Solution: we need to add rows to the data such that the intervals between rows correspond to the same time lag
+* The added rows are filled with `NA` on the respective construct and then "imputed" while fitting
+* The exact procedure for our particular data set can be found in the accompanying R script `prepare_bolzen.R`
+* In general, you need a variable that contains integer or continuous time (at least the distance between values has to be meaningful)
+* More in Practical Aspects
+
+
+
+
+:::
+:::  {.column width = "5%"}
+:::
+
+::: {.column width = "60%"}
+
+```{r}
+#| echo: false
+#| eval: true
+#| warning: false
+#| out-width: "100%"
+#| fig-height: 3
+
+# plot time points and positive affects
+# library(ggh4x) # for facet_grid2
+
+set.seed(12)
+bolzen_baseline %>%
+  mutate(
+    time_window = factor(time_window,levels = c("mor", "mid", "eve"))) %>%
+  # filter(id %in% sample(unique(bolzen_baseline$id), size = 3)) %>%
+  filter(id == 1) %>%
+  ggplot(aes(y = posaff, x = timepoint, group = time_window)) +
+  geom_point() +
+  geom_line() + 
+  facet_grid(. ~ dayphase_counter + time_window) +
+  labs(x = "Time Point", y = "Positive affect", title = "Real Data Structure") +
+  theme_minimal(base_size = 14) +
+  theme(axis.text.x = element_text(size = 10))
+```
+
+
+```{r}
+#| echo: false
+#| eval: true
+#| warning: false
+#| out-width: "100%"
+#| fig-height: 3
+
+
+#####
+bolzen_baseline %>%
+  filter(id == 1) %>%
+  ggplot(aes(x = obs_counter, y = posaff)) +
+  geom_point() +
+  geom_line() +
+  theme_minimal(base_size = 14) +
+  labs(x = "Integer Time", y = "Positive affect", title = "Data Structure assumed by AR model") +
+  theme(axis.text.x = element_text(size = 10))
+```
+:::
+::::
+
+

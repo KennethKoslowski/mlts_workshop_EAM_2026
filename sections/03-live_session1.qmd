@@ -1,0 +1,272 @@
+```{r, include=FALSE}
+library(ggplot2)
+library(mlts)
+library(rstan)
+```
+
+
+
+# Live Session I (30 min)
+
+* **Session Aims**:
+  * Get familiar with `mlts_model()` syntax
+  * Encounter common problems while fitting models
+  * Check assumptions of AR models
+
+
+* **What to do?** In groups of two (if you like),
+  * fit a simple AR model for the construct *repetitive negative thinking* (variable `rnt` in dataset `bolzen_baseline`) or use your own data and interpret model results with your partner
+  * If you work with the `bolzen` data, run the R script `bolzen_prepare.R` in the folder *live_session* once
+    * Alternatively, just work in the R script `live_session1.R` directly and run the first 11 lines of code
+  * Important: For practical reasons, in this exercise we only use the `bolzen_baseline` data frame for all analyses (without `tinterval`). Please do the same but keep in mind that the results may be taken with a large grain of salt.
+  * Set `seed = 1234` in `mlts_fit()`, to replicate the exact results
+
+---
+
+## 1. AR(1) model for repetitive negative thinking {.scrollable-code}
+
+::: {.panel-tabset}
+
+### Task
+
+Fit a model for repetitive negative thinking!
+
+**Model:** 
+
+- AR(1) model 
+
+**Variables:** 
+
+- Use repetitive negative thinking (`rnt`) as time series variable
+
+**Data:**
+
+- Use only data of the baseline phase (dataset `bolzen_baseline`)
+
+**To explore:**
+
+- You'll likely get an error message before fitting the model - try to understand and fix it!
+- When you get `mlts_fit()` to work, only fit the model with 500 MCMC iterations
+- What do you realize after fitting? (Go to next task after taking note)
+
+### Solution
+
+::: {.output-scroll}
+
+```{r}
+#| eval: true
+#| echo: false
+
+mlts_fit1 <- readRDS("./live_session/live_session1_fits/mlts_fit1.rds")
+```
+
+
+```{r}
+#| eval: false
+#| echo: true
+
+# model in mlts
+mlts_m1 <- mlts_model(q = 1)
+mlts_m1
+# mlts_model_paths(mlts_m1)
+
+# fit
+mlts_fit1 <- mlts_fit(
+  model = mlts_m1,
+  data = bolzen_baseline,
+  id = "id",
+  ts = "rnt",
+  iter = 2000
+) # throws an error
+
+
+# Error Message:
+# "Within-cluster variance is zero for indicator rnt in cluster 19"
+# - means that there is no variation in the variable for that id
+#   (i.e., always answered in the same category)
+
+# Solution: filter out id 19 manually:
+
+bolzen_clean <- bolzen_baseline %>%
+  filter(id != 19)
+
+# refit
+mlts_fit1 <- mlts_fit(
+  model = mlts_m1,
+  data = bolzen_clean,
+  id = "id",
+  ts = "rnt",
+  iter = 2000
+) # throws another error
+
+# better solution: filter out all ids with Within-cluster variance == zero
+# on the respective indicator
+# can be achieved, e.g., with n_distinct from dplyr
+bolzen_clean <- bolzen_baseline %>%
+  group_by(id) %>%
+  filter(n_distinct(rnt, na.rm = TRUE) > 1)
+
+# refit
+mlts_fit1 <- mlts_fit(
+  model = mlts_m1,
+  data = bolzen_clean,
+  id = "id",
+  ts = "rnt",
+  iter = 500
+) # this works
+```
+
+
+```{r}
+#| eval: true
+#| echo: true
+
+# summary
+summary(mlts_fit1) # mixing is bad (see results section)
+
+# inspect traceplots
+traceplot(mlts_fit1$stanfit)
+```
+
+
+:::
+
+:::
+
+
+---
+
+## 2. AR(1) model for repetitive negative thinking with restriction {.scrollable-code}
+
+::: {.panel-tabset}
+
+### Task
+
+Without further restrictions, the model from exercise 1 does not converge.
+Inspect the parameters from the fitted model again and try to find restriction(s) such that the model converges!
+
+**Model:** 
+
+- AR(1) model with some parameters restricted
+
+**Variables:** 
+
+- Use repetitive negative thinking (`rnt`) as time series variable
+
+**Data:**
+
+- Use only data of the baseline phase (dataset `bolzen_baseline`)
+
+**To explore:**
+
+* Inspect traceplots
+
+### Solution
+
+::: {.output-scroll}
+
+```{r}
+#| eval: true
+#| echo: false
+
+mlts_fit2 <- readRDS("./live_session/live_session1_fits/mlts_fit2.rds")
+```
+
+
+```{r}
+#| eval: false
+#| echo: true
+
+# model in mlts
+mlts_m2 <- mlts_model(q = 1, fix_inno_vars = TRUE)
+mlts_m2
+# mlts_model_paths(mlts_m1)
+
+# fit
+mlts_fit2 <- mlts_fit(
+  model = mlts_m2,
+  data = bolzen_clean,
+  id = "id",
+  ts = "rnt",
+  iter = 2000
+)
+```
+
+
+```{r}
+#| eval: true
+#| echo: true
+
+# summary
+summary(mlts_fit2) # mixing is bad (see results section)
+
+# inspect traceplots
+traceplot(mlts_fit2$stanfit)
+```
+
+
+:::
+
+:::
+
+---
+
+## 3. Check assumptions {.scrollable-code}
+
+::: {.panel-tabset}
+
+### Task
+
+(Usually before fitting models,) We need to check the assumptions of the AR model.
+
+**Stationarity**
+
+- Check for stationarity using graphical checks or other methods, if you have more ideas!
+
+**Variables:** 
+
+- Use repetitive negative thinking (`rnt`) as time series variable
+
+**Data:**
+
+- Use only data of the baseline phase (dataset `bolzen_baseline`)
+
+**To explore:**
+
+* *Advanced.* If you have time left, check the script `bolzen_prepare.R` and try to understand the steps involved in creating a time variable (called `int_time_spaced`) that takes the gaps in measurement into account!
+
+### Solution
+
+::: {.output-scroll}
+
+
+```{r}
+#| eval: true
+#| echo: true
+
+# plot trend
+ggplot(aes(x = obs_counter, y = rnt),
+       data = bolzen_baseline) +
+  geom_smooth(aes(group = id),
+              method = "lm", se = FALSE,
+              color = "grey", linewidth = .5) +
+  geom_smooth(method = "lm") +
+  theme_minimal(base_size = 14) +
+  labs(y = "RNT", x = "(Integer) Time Point")
+
+# other method: fit growth curve model in lme4
+library(lme4)
+
+# fit growth curve model
+gcm <- lmer(rnt ~ 1 + obs_counter + (1 + obs_counter | id),
+            data = bolzen_baseline)
+
+# check summary
+summary(gcm) # literally no growth
+```
+
+
+:::
+
+:::
+

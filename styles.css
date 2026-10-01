@@ -1,0 +1,220 @@
+/* ---------- Typography ---------- */
+
+:root {
+--r-main-font: "Inter", system-ui, sans-serif;
+--r-heading-font: "Inter", system-ui, sans-serif;
+--r-code-font: "JetBrains Mono", "Fira Code", monospace;
+
+--r-main-color: #0F172A;
+--r-heading-color: #4F7F39;
+--r-link-color: #4F7F39;
+--quarto-hl-fu-color: #4F7F39
+}
+
+
+/* ---------- TASKS ---------- */
+.solution {
+  filter: blur(6px);
+}
+
+.present .solution:hover {
+  filter: none;
+}
+
+
+/* ---------- General ---------- */
+
+/* references displayes on the bottom of the slides */
+.references{
+  font-size: 0.7em;
+  text-align: justify;
+  text-indent: hanging 2em;
+  position: absolute;
+  bottom: 1%
+}
+
+.references p{
+  margin: 0pt !important;
+}
+
+/* larger text */
+.large {   
+  font-size: 1.25em;
+}
+
+/* manual vertical spacer, e.g. ::: {.vspace} ::: */
+.vspace {
+  display: block;
+  height: 1em;
+}
+
+.vspace-sm {
+  height: 0.5em;
+}
+
+.vspace-lg {
+  height: 2em;
+}
+
+.reveal {
+font-size: 40px;
+}
+
+.reveal h1,
+.reveal h2,
+.reveal h3 {
+font-weight: 500;
+letter-spacing: +0.05em;
+margin-top: 1em;
+padding-bottom: 15px;
+}
+
+.reveal h1:first-child,
+.reveal h2:first-child,
+.reveal h3:first-child {
+margin-top: 0;
+}
+
+.reveal h1 {
+font-size: 2.2em;
+}
+
+.reveal h2 {
+font-size: 1.6em;
+}
+
+.reveal h4 {
+margin-top: 1em;
+padding-bottom: 10px;
+}
+
+.reveal h4:first-child {
+margin-top: 0;
+}
+
+
+/* ---------- Code ---------- */
+
+pre {
+  overflow-x: visible !important;
+}
+
+.sourceCode {
+  overflow: visible !important;
+}
+
+.reveal div.sourceCode{
+  border: 0px;
+}
+
+.reveal pre {
+font-size: 0.85em;
+border-radius: 0px;
+border: 0px;
+}
+
+
+.reveal pre code {
+line-height: 1.3;
+font-family: var(--r-code-font);
+font-size: 0.85em;
+}
+
+.reveal div.sourceCode .default{
+  border: 0px solid #bbb;
+  border-radius: 0px;
+  font-size: 0.85em;
+  padding-left: 12px;
+  border-bottom: 10px !important;
+  /*! border-left: 5px solid gray; */    
+}
+
+.reveal div.sourceCode .r{
+  border-left: 3px solid #4F7F39;
+  border-radius: 0px;
+  font-size: 0.9em;
+  padding-left: 0px;
+  /*! border-left: 5px solid gray; */    
+  text-indent: each-line 5px;
+  line-height: 1.4;
+  margin-bottom: 10px;
+}
+
+.reveal .runtime-box{
+  position: absolute;
+  top: 2em;
+  right: 1em;
+
+  font-size: 0.95em;
+  color: black;
+
+  border: 2px solid #4F7F39;
+  border-radius: 6px;
+
+  padding: 0em 0.4em;
+  background: rgba(255,255,255,.9);
+  z-index: 100
+}
+
+/* ---------- centered text ---------- */
+
+.center {
+  text-align: center;
+}
+
+/* ---------- Columns ---------- */
+
+.reveal .column {
+  box-sizing: border-box;
+}
+
+.reveal .column img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ---------- Tables ---------- */
+
+.reveal table {
+font-size: 1em;
+}
+
+.reveal table td {
+  border-bottom: 0px solid;
+  line-height: 1.15;
+  padding: .1em .5em .05em .05em;
+}
+
+/* ---------- Blockquotes ---------- */
+
+.reveal blockquote {
+border-left: 5px solid #4F7F39;
+padding-left: 1em;
+font-style: normal;
+}
+
+/* ---------- Figures ---------- */
+
+.reveal img {
+border: none;
+box-shadow: none;
+}
+
+
+/* ---------- Avoid Scrolling Outputs ----------- */
+
+.reveal .slide-content,
+.reveal pre,
+.reveal pre code,
+.cell-output,
+.cell-output pre {
+  overflow: visible !important;
+  max-height: none !important;
+}
+
+/* make a class for scrollabel output */
+.output-scroll {
+  max-height: 800px;
+  overflow-y: auto;
+}
+

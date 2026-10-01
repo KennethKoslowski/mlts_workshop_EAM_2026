@@ -1,0 +1,1190 @@
+---
+title: "Bolzenkötter"
+format: html
+---
+
+```{r}
+library(mlts)
+library(tidyverse)
+
+# new dataset:
+# Link to OSF: https://osf.io/z2e83/
+# Link to Article: https://doi.org/10.1007/s12671-024-02350-5 
+# Link to Codebook: https://osf.io/z2e83/files/uph2q
+
+# Link to ESM data on OSF
+esm_link = "https://osf.io/q4czt"
+survey_link = "https://osf.io/ecsj9"
+
+# obtain datasets directly from OSF
+library(osfr)
+
+# ESM DATA 
+downloaded <- osf_download(osf_retrieve_file(esm_link), path = tempdir(), conflicts = "overwrite")
+esm   <- read.csv(downloaded$local_path)
+
+# SURVEY DATA 
+downloaded <- osf_download(osf_retrieve_file(survey_link), path = tempdir(), conflicts = "overwrite")
+survey   <- read.csv(downloaded$local_path)
+
+# clean-up
+unlink(downloaded)
+rm(downloaded)
+
+# select relevant survey items to add to esm data 
+use = c("id", "group", "pre_rtq_sum", "post_rtq_sum")
+survey = survey[,use]
+survey$pre_rtq_sum_cen = survey$pre_rtq_sum - mean(survey$pre_rtq_sum)
+survey$post_rtq_sum_cen = survey$post_rtq_sum - mean(survey$post_rtq_sum)
+
+
+# Merge data 
+bolzen <- merge(x = survey, y = esm, by = c("id", "group"), all = TRUE)
+
+```
+
+
+```{r}
+# inspect dataset characteristics 
+length(table(bolzen$id))  # N = 100
+hist(table(bolzen$id))    
+table(survey$group) # 50 GI = actice control group / 50 DM = detached mindfulness
+table(esm$id, esm$phase)
+
+# esm items
+esm_items = c("gluecklich","froehlich", "entspannt",  "energiegeladen",
+  "traurig",  "niedergeschlagen", "aengstlich", "nervoes",
+  "veraergert", "reizbar", "posaff", "negaff", "rnt")
+
+# 
+summary(bolzen[,esm_items])
+# > No missings on ESM items
+
+# additional preprocessing:
+bolzen$phase_bi = ifelse(bolzen$phase == "b", 0,1)
+bolzen$group_bi = ifelse(bolzen$group == "gi", 0, 1)
+
+bolzen %>%
+  pivot_longer(cols = esm_items) %>%
+  ggplot(aes(x = value)) +
+  geom_histogram() +
+  facet_wrap(~name)
+```
+
+### Sampling Scheme 
+```{r, message=F, warning=F}
+#| fig-width: 12
+#| fig-height: 3
+
+bolzen$time_window = factor(bolzen$time_window, 
+                            levels = c("mor", "mid", "eve"))
+bolzen$timepoint = factor(bolzen$timepoint, 
+                            levels = c("t0", "t1", "t2"))
+bolzen$phase = factor(bolzen$phase, levels = c("b","i"))
+
+library(ggh4x)
+bolzen %>%
+  filter(id %in% sample(unique(bolzen$id),size = 3)) %>%
+  ggplot(aes(y = rnt, x = timepoint, group = time_window)) +
+  geom_point() +
+  geom_line() + 
+  facet_grid2(id~phase+dayphase_counter+time_window,
+              strip = strip_nested())
+```
+
+
+```{r}
+##### WHAT WE SHOULD SEE: 
+##### There are rows missing in the data. We should correct for this by adding 
+##### missing data rows during estimation. 
+
+#### start with a dummy grid that we merge to each data: 
+table(bolzen$id,bolzen$day_counter)
+N_days = 10
+N_windows = 3
+N_tp = 3
+
+dummy_grid = data.frame(
+  "day_counter"       = rep(1:N_days, each = N_windows*N_tp),
+  "time_window"       = rep(c("mor", "mid", "eve"), each = N_tp, times = N_days),
+  "timepoint"         = rep(c("t0","t1","t2"), times = N_days*N_windows),
+  "count"             = 1:(N_days*N_windows*N_tp)
+)
+
+# add additional space for overnight-lags and between time windows
+dummy_grid$shift = ifelse(dummy_grid$time_window != lag(dummy_grid$time_window),4,1)
+dummy_grid$shift = ifelse(dummy_grid$day_counter > lag(dummy_grid$day_counter), 8, dummy_grid$shift)
+dummy_grid$shift[1] = 0
+dummy_grid$int_time_spaced = cumsum(dummy_grid$shift)
+
+# add new grid variables to the data 
+bolzen = merge(x = bolzen, y = dummy_grid, by = c("day_counter", "time_window", "timepoint"))
+
+bolzen = bolzen %>% arrange(id, int_time_spaced)
+
+#####
+bolzen %>%
+  filter(id == 1) %>%
+  ggplot(aes(x = int_time_spaced, y = rnt)) +
+  geom_point() +
+  geom_line()
+
+bolzen %>%
+  filter(id == 1) %>%
+  ggplot(aes(x = obs_counter, y = rnt)) +
+  geom_point() +
+  geom_line()
+
+
+bolzen_spaced = create_missings(
+  data = bolzen, 
+  tinterval = 1,
+  id = "id",
+  # choose one of: 
+#  time = "int_time_spaced"   # this one for higher temporal resolution
+  time = "count"
+  )
+
+summary(bolzen_spaced$phase_bi)
+summary(bolzen_spaced$group_bi)
+
+# fill NAs for exogenous variables
+bolzen_spaced <- bolzen_spaced %>%
+  group_by(id) %>%
+  mutate(
+    group = unique(group[!is.na(group)]),
+    pre_rtq_sum_cen = unique(pre_rtq_sum_cen[!is.na(pre_rtq_sum_cen)]),
+    phase_bi = ifelse(day_counter<6, 0,1),
+    group_bi = ifelse(any(group=="gi"),0,1)) %>%
+  group_by(id) %>%
+  fill(phase_bi, .direction = "downup") %>%
+  ungroup()
+  
+summary(bolzen_spaced$phase_bi)
+summary(bolzen_spaced$group_bi)
+```
+
+# Model Extensions 
+
+## Multiple-Indicator Factor Model
+
+* Steps: 
+  * Check correlations between variables
+  * Optional: Two-level CFA as a first step. 
+  *           See how the same model looks in lavaan
+
+
+
+### Two-level CFA
+```{r}
+model = mlts_model(q = 1, p = 3, max_lag = 0, fix_inno_vars = T)
+mlts_paths(model)
+
+fit = mlts_fit(model = model, 
+               data = bolzen %>% filter(!(id %in% 62)),
+               id = "id",
+               ts = c("gluecklich", "froehlich", "entspannt"),
+               na.rm = TRUE,
+               iter = 2000,
+               chains = 4,
+               cores = 4
+               )
+
+bayesplot::mcmc_trace(fit$posteriors[,,])
+
+summary(fit)
+```
+
+```{r}
+library(lavaan)
+
+lavmod = "
+level: 1
+PAw =~ gluecklich + froehlich + entspannt
+
+level: 2
+PAb =~ gluecklich + froehlich + entspannt
+gluecklich ~ 0*1
+PAb ~ NA*1
+gluecklich ~~ 0*gluecklich
+"
+
+lavfit = cfa(model = lavmod, 
+             data = bolzen %>% filter(!(id %in% 62)), 
+             cluster = "id")
+summary(lavfit)
+```
+
+### Three-Indicator AR(1)
+
+* Achtung hier mit personen-spezifischen Innovationsvarianzen:
+
+```{r}
+model = mlts_model(q = 1, p = 3)
+
+fit = mlts_fit(model = model, 
+               data = bolzen %>% filter(!(id %in% 62)),
+               id = "id",
+               ts = c("gluecklich", "froehlich", "entspannt"),
+               na.rm = TRUE,
+               iter = 2000,
+               chains = 4,
+               cores = 4
+               )
+
+bayesplot::mcmc_trace(fit$posteriors[,,])
+
+summary(fit)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Potential Analyses (unstructured):
+
+## A: Compare Intervention-Phase 
+* Momentary effect of intervention (t1, t2)
+* linear trend 
+* use type of intervention as between-level variable
+* outcome: repetitive negative thinking
+* With AR to begin with
+```{r}
+# add new variables 
+bolzen$t15 = ifelse(bolzen$timepoint == "t1", 1, 0)
+bolzen$t30 = ifelse(bolzen$timepoint == "t2", 1, 0)
+bolzen$dayphase_counter_0 = bolzen$dayphase_counter-1
+
+model = mlts_model(
+  q = 4, 
+  max_lag = 0, 
+  is_exogenous = 1:3,
+  incl_t0_effects = c("phi(0)_41", "phi(0)_42"),
+  incl_rDSEM_effects = c("phi(s)_43"),
+  inno_covs_zero = T)
+
+fit = mlts_fit(
+  model = model,
+  data = bolzen %>% filter(phase_bi == 1 & !(id %in% c(36, 51,88))),
+  id = "id",
+  ts = c("t15", "t30", "dayphase_counter_0", "rnt")
+)
+
+
+summary(fit)
+##### VERY HIGH CORRELATION BETWEEN phi(0)_41.phi(0)_42	0.974
+##### ASSUME EQUAL EFFECT for 15 and 30 minute interval: 
+
+# ==============================================================================
+
+# add new variables 
+bolzen$intervene = ifelse(bolzen$timepoint != "t0", 1, 0)
+summary(bolzen_spaced$intervene)
+
+model = mlts_model(
+  q = 3, 
+  max_lag = 0, 
+  is_exogenous = 1:2,
+  incl_rDSEM_effects = c("phi(s)_32"),
+  incl_t0_effects = c("phi(0)_31"),
+  fixef_zero = c("phi(1)_32", "phi(1)_33"),
+  inno_covs_zero = T)
+
+mlts_paths(model)
+
+fit = mlts_fit(
+  model = model,
+  data = bolzen %>% filter(phase_bi == 1 & !(id %in% c(36, 51,88))),
+  id = "id",
+  ts = c("intervene", "dayphase_counter_0", "rnt")
+)
+
+
+summary(fit)
+
+bayesplot::mcmc_trace(fit$posteriors)
+
+```
+
+* Try simple growth model:
+```{r}
+bolzen %>% filter(!(id %in% c(36, 51,88))) %>%
+  ggplot(aes(x = dayphase_counter_0, y = rnt, group = id, color = as.factor(id))) +
+  stat_smooth(method = "lm", se = F, alpha = 0.3) +
+  theme(legend.position = "none") + 
+  facet_grid(group~phase)
+
+
+model = mlts_model(
+  q = 2, 
+  max_lag = 0, 
+  is_exogenous = 1,
+  incl_rDSEM_effects = c("phi(s)_21"),
+  ranef_pred = "group_bi",
+  inno_covs_zero = T)
+
+#mlts_paths(model)
+
+fit = mlts_fit(
+  model = model,
+  data = bolzen %>% filter(phase_bi == 1 & !(id %in% c(36, 51,88))),
+  id = "id",
+  ts = c("dayphase_counter_0", "rnt"),
+  iter = 1000
+)
+
+summary(fit)
+mlts_standardized(fit)
+```
+
+* Try adding the momentary effect of the mindfullness intervention
+```{r}
+bolzen$intervene = ifelse(bolzen$timepoint != "t0", 1, 0)
+
+bolzen %>% filter(!(id %in% c(36, 51,88))) %>%
+  ggplot(aes(x = timepoint, y = rnt)) +
+#  stat_smooth(method = "lm", se = F, alpha = 0.3) +
+  geom_boxplot() +
+  theme(legend.position = "none") + 
+  facet_grid(group~phase)
+
+bolzen %>% 
+  group_by(id, phase, day_counter, time_window) %>%
+  mutate(posaff_diff = ifelse(timepoint != "t0", posaff - posaff[timepoint=="t0"],NA)) %>%
+  ggplot(aes(x = timepoint, y = posaff_diff)) +
+#  stat_smooth(method = "lm", se = F, alpha = 0.3) +
+  geom_boxplot() +
+  theme(legend.position = "none") + 
+  facet_grid(group~phase)
+
+bolzen %>% 
+  group_by(id, phase, day_counter, time_window) %>%
+  mutate(aff_diff = ifelse(timepoint != "t0", negaff - negaff[timepoint=="t0"],NA)) %>%
+  ggplot(aes(x = timepoint, y = aff_diff)) +
+#  stat_smooth(method = "lm", se = F, alpha = 0.3) +
+  geom_boxplot() +
+  theme(legend.position = "none") + 
+  facet_grid(group~phase)
+
+bolzen %>% 
+  group_by(id, phase, day_counter, time_window) %>%
+  mutate(aff_diff = ifelse(timepoint != "t0", rnt - rnt[timepoint=="t0"],NA)) %>%
+  ggplot(aes(x = timepoint, y = aff_diff)) +
+#  stat_smooth(method = "lm", se = F, alpha = 0.3) +
+  geom_boxplot() +
+  theme(legend.position = "none") + 
+  facet_grid(group~phase)
+```
+
+
+```{r}
+
+bolzen$intervene = ifelse(bolzen$timepoint != "t0", 1, 0)
+
+model = mlts_model(
+  q = 3, 
+  max_lag = 0, 
+  is_exogenous = c(1,3),
+  incl_rDSEM_effects = c("phi(s)_21"),
+  incl_t0_effects = c("phi(0)_23"),
+  fixef_zero = c("phi(1)_23"),
+  ranef_pred = "group_bi",
+  inno_covs_zero = T)
+
+#mlts_paths(model)
+
+fit = mlts_fit(
+  model = model,
+  data = bolzen %>% filter(phase_bi == 1 & !(id %in% c(36, 51,88))),
+  id = "id",
+  ts = c("dayphase_counter_0", "rnt", "intervene"),
+  iter = 1000,
+)
+
+summary(fit)
+mlts_standardized(fit)
+```
+
+
+### Testing Model: POSAFF
+
+Are positive affect dynamics changing between baseline and 
+the intervention period (irrespective of treatment)?
+```{r}
+
+
+model1 = mlts_model(q = 2, 
+                    is_exogenous = 1, 
+                    fixef_zero = "phi(1)_21",
+                    incl_t0_effects = "phi(0)_21",
+                    incl_interaction_effects = "phi(i)_2.1(0)2(1)",
+                    fix_inno_vars = T,
+                    inno_covs_zero = T)
+
+mlts_paths(model1)
+
+# try to estimate: 
+fit1 = mlts_fit(
+  model = model1, 
+  data = bolzen_spaced, 
+  id = "id",
+  ts = c("phase_bi", "posaff"),
+  iter = 2000  
+  )
+
+summary(fit1)
+
+bayesplot::mcmc_trace(fit1$posteriors)
+
+```
+
+#### With group as predictor
+```{r}
+
+
+model = mlts_model(q = 2, 
+                    is_exogenous = 1, 
+                    ranef_pred = "group_bi",
+                    fixef_zero = "phi(1)_21",
+                    incl_t0_effects = "phi(0)_21",
+                    incl_interaction_effects = "phi(i)_2.1(0)2(1)",
+                    fix_inno_vars = T,
+                    inno_covs_zero = T)
+
+mlts_paths(model)
+
+# try to estimate: 
+fit = mlts_fit(
+  model = model, 
+  data = bolzen_spaced, 
+  id = "id",
+  ts = c("phase_bi", "negaff"),
+  iter = 2000,
+  center_covs = F
+  )
+
+summary(fit)
+
+bayesplot::mcmc_trace(fit1$posteriors)
+
+```
+
+
+### Testing Model: NEGAFF
+
+Are negative affect dynamics changing between baseline and 
+the intervention period (irrespective of treatment)?
+```{r}
+
+
+model1 = mlts_model(q = 2, 
+                    is_exogenous = 1, 
+                    fixef_zero = "phi(1)_21",
+                    incl_t0_effects = "phi(0)_21",
+                    incl_interaction_effects = "phi(i)_2.1(0)2(1)",
+                    fix_inno_vars = T,
+                    inno_covs_zero = T)
+
+mlts_paths(model1)
+
+# try to estimate: 
+fit1 = mlts_fit(
+  model = model1, 
+  data = bolzen_spaced, 
+  id = "id",
+  ts = c("phase_bi", "negaff"),
+  iter = 2000  
+  )
+
+summary(fit1)
+
+bayesplot::mcmc_trace(fit1$posteriors)
+
+```
+
+#### With group as predictor
+```{r}
+
+
+model = mlts_model(q = 2, 
+                    is_exogenous = 1, 
+                    ranef_pred = "group_bi",
+                    fixef_zero = "phi(1)_21",
+                    incl_t0_effects = "phi(0)_21",
+                    incl_interaction_effects = "phi(i)_2.1(0)2(1)",
+                    fix_inno_vars = T,
+                    inno_covs_zero = T)
+
+mlts_paths(model)
+
+# try to estimate: 
+fit = mlts_fit(
+  model = model, 
+  data = bolzen_spaced, 
+  id = "id",
+  ts = c("phase_bi", "negaff"),
+  iter = 2000,
+  center_covs = F
+  )
+
+summary(fit)
+```
+
+
+
+### Testing Model: RNT
+
+Are negative affect dynamics changing between baseline and 
+the intervention period (irrespective of treatment)?
+```{r}
+
+model1 = mlts_model(q = 2, 
+                    is_exogenous = 1, 
+                    fixef_zero = "phi(1)_21",
+                    incl_t0_effects = "phi(0)_21",
+                    incl_interaction_effects = "phi(i)_2.1(0)2(1)",
+                    fix_inno_vars = T,
+                    inno_covs_zero = T)
+
+mlts_paths(model1)
+
+# try to estimate: 
+fit1 = mlts_fit(
+  model = model1, 
+  data = bolzen_spaced, 
+  id = "id",
+  ts = c("phase_bi", "rnt"),
+  iter = 2000  
+  )
+
+summary(fit1)
+
+bayesplot::mcmc_trace(fit1$posteriors)
+
+```
+
+#### With group as predictor
+```{r}
+
+
+model = mlts_model(q = 2, 
+                    is_exogenous = 1, 
+                    ranef_pred = "group_bi",
+                    fixef_zero = "phi(1)_21",
+                    incl_t0_effects = "phi(0)_21",
+                    incl_interaction_effects = "phi(i)_2.1(0)2(1)",
+                    fix_inno_vars = T,
+                    inno_covs_zero = T)
+
+mlts_paths(model)
+
+# try to estimate: 
+fit = mlts_fit(
+  model = model, 
+  data = bolzen_spaced, 
+  id = "id",
+  ts = c("phase_bi", "negaff"),
+  iter = 2000,
+  center_covs = F
+  )
+
+summary(fit)
+```
+
+
+
+
+
+## B: Compare Intervention-Phase 
+* Momentary effect of Intervation (t1, t2)
+* use type of intervention as between-level variable
+* outcome: repetitive negative thinking
+* With AR to begin with and moderation effect successful 
+
+```{r}
+# add new variables 
+bolzen$t15 = ifelse(bolzen$timepoint == "t1", 1, 0)
+bolzen$t30 = ifelse(bolzen$timepoint == "t2", 1, 0)
+bolzen$dayphase_counter_0 = bolzen$dayphase_counter-1
+
+model = mlts_model(
+  q = 4, 
+  max_lag = 0, 
+  is_exogenous = 1:3,
+  incl_t0_effects = c("phi(0)_41", "phi(0)_42"),
+  incl_rDSEM_effects = c("phi(s)_43"),
+  inno_covs_zero = T)
+
+fit = mlts_fit(
+  model = model,
+  data = bolzen %>% filter(phase_bi == 1 & !(id %in% c(36, 51,88))),
+  id = "id",
+  ts = c("t15", "t30", "dayphase_counter_0", "rnt")
+)
+
+
+summary(fit)
+##### VERY HIGH CORRELATION BETWEEN phi(0)_41.phi(0)_42	0.974
+##### ASSUME EQUAL EFFECT for 15 and 30 minute interval: 
+
+# ==============================================================================
+
+# add new variables 
+bolzen$intervene = ifelse(bolzen$timepoint != "t0", 1, 0)
+
+model = mlts_model(
+  q = 3, 
+  max_lag = 0, 
+  is_exogenous = 1:2,
+  incl_rDSEM_effects = c("phi(s)_32"),
+  fixef_zero = c("phi(1)_32", "phi(1)_33"),
+  inno_covs_zero = T)
+
+mlts_paths(model)
+
+fit = mlts_fit(
+  model = model,
+  data = bolzen %>% filter(phase_bi == 1 & !(id %in% c(36, 51,88))),
+  id = "id",
+  ts = c("intervene", "dayphase_counter_0", "rnt")
+)
+
+
+summary(fit)
+
+bayesplot::mcmc_trace(fit$posteriors)
+
+```
+
+* Try simple growth model:
+```{r}
+bolzen %>% filter(!(id %in% c(36, 51,88))) %>%
+  ggplot(aes(x = dayphase_counter_0, y = rnt, group = id, color = as.factor(id))) +
+  stat_smooth(method = "lm", se = F, alpha = 0.3) +
+  theme(legend.position = "none") + 
+  facet_grid(group~phase)
+
+
+model = mlts_model(
+  q = 2, 
+  max_lag = 0, 
+  is_exogenous = 1,
+  incl_rDSEM_effects = c("phi(s)_21"),
+  ranef_pred = "group_bi",
+  inno_covs_zero = T)
+
+#mlts_paths(model)
+
+fit = mlts_fit(
+  model = model,
+  data = bolzen %>% filter(phase_bi == 1 & !(id %in% c(36, 51,88))),
+  id = "id",
+  ts = c("dayphase_counter_0", "rnt"),
+  iter = 1000
+)
+
+summary(fit)
+mlts_standardized(fit)
+```
+
+* Try adding the momentary effect of the mindfulness intervention
+```{r}
+bolzen$intervene = ifelse(bolzen$timepoint != "t0", 1, 0)
+
+bolzen %>% filter(!(id %in% c(36, 51,88))) %>%
+  ggplot(aes(x = timepoint, y = rnt, group = id, color = as.factor(id))) +
+  stat_smooth(method = "lm", se = F, alpha = 0.3) +
+  theme(legend.position = "none") + 
+  facet_grid(group~phase+time_window)
+
+
+model = mlts_model(
+  q = 3, 
+  max_lag = 0, 
+  is_exogenous = c(1,3),
+  incl_rDSEM_effects = c("phi(s)_21"),
+  incl_t0_effects = c("phi(0)_23"),
+  fixef_zero = c("phi(1)_23"),
+  ranef_pred = "group_bi",
+  inno_covs_zero = T)
+
+#mlts_paths(model)
+
+fit = mlts_fit(
+  model = model,
+  data = bolzen %>% filter(phase_bi == 1 & !(id %in% c(36, 51,88))),
+  id = "id",
+  ts = c("dayphase_counter_0", "rnt", "intervene"),
+  iter = 1000
+)
+
+summary(fit)
+mlts_standardized(fit)
+```
+
+
+## C: Moderation
+```{r}
+modVAR = mlts_model(
+  q = 3,
+  group = 2,
+  fix_dynamics = T, 
+  fix_inno_vars = T
+  )
+
+mlts_paths(modVAR)
+
+# try to estimate: 
+fit = mlts_fit(
+  model = modVAR, 
+  data = bolzen_spaced %>% filter(phase_bi == 1 & !(id %in% c(36,51,88))), 
+  id = "id",
+  group = "group",
+  ts = c("negaff", "posaff", "rnt"),
+  iter = 500,
+  center_covs = F
+  )
+
+summary(fit, flag_signif = T)
+
+mlts_plot(fit = fit, type = "fe", what = "Fixed effect")
+
+
+
+```
+
+
+### Umsetzungsvariable
+```{r}
+bolzen[,c("id", "time_window", "umsetzen")]
+
+fit <- mlts_model(q = 1, max_lag = 0) %>%
+  mlts_fit(model = ., data = bolzen %>% filter(phase_bi == 1 & !(id %in% c(28,51))),
+           id = "id", ts = "umsetzen",
+           )
+  
+```
+
+
+### TIME ON TASK TIME
+```{r}
+fit <- mlts_model(q = 1, max_lag = 0, ranef_pred = "group_bi") %>%
+  mlts_fit(model = ., data = bolzen %>% filter(phase_bi == 1 & !(id %in% c(28,51))),
+           id = "id", ts = "umsetzen",
+           )
+
+summary(lm(bolzen$audio_duration ~ bolzen$group))
+summary(lm(bolzen$umsetzen ~ bolzen$group))
+summary(lm(bolzen$pre_rtq_sum ~ bolzen$group))
+summary(lm(bolzen$post_rtq_sum ~ bolzen$group))
+summary(lm(bolzen$post_rtq_sum ~ scale(bolzen$pre_rtq_sum, scale=F) * bolzen$group))
+
+
+```
+
+
+
+
+
+
+# COMPLEX MODELS: 
+```{r}
+model = mlts_model(
+  q = 3, 
+  group = 2,
+  is_exogenous = 1,
+  fix_dynamics = T,
+  fix_inno_vars = T,
+  incl_interaction_effects = c(
+    "phi(i)_2.1(1)2(1)",
+    "phi(i)_2.1(1)3(1)",
+    "phi(i)_3.1(1)2(1)",
+    "phi(i)_3.1(1)3(1)"
+  ))
+
+mlts_paths(model)
+
+
+# try to estimate: 
+bolzen_spaced$inter = 0
+bolzen_spaced$inter = ifelse(bolzen_spaced$timepoint == "t0", 1, bolzen_spaced$inter)
+
+fit = mlts_fit(
+  model = model, 
+  data = bolzen_spaced %>% filter(phase_bi == 1 & !(id %in% c(NA))), 
+  id = "id",
+  group = "group",
+  ts = c("inter", "negaff", "posaff"),
+  iter = 500
+  )
+
+summary(fit)
+
+
+```
+# SIMPLIFIED VAR MODEL:
+
+- POS and NEG affect with momentary link included as direct effect
+
+  SEEMS TO WORK:
+```{r}
+model = mlts_model(
+  q = 2, 
+  fix_inno_vars = T,
+  fixef_zero = c("phi(1)_21", "phi(1)_12"),
+  incl_t0_effects = "phi(0)_21",
+  inno_covs_zero = T
+  )
+
+mlts_paths(model)
+
+fit = mlts_fit(
+  model = model, 
+  data = bolzen_spaced, #%>% filter(phase_bi == 1 & !(id %in% c(NA))), 
+  id = "id",
+  ts = c("negaff", "posaff"),
+  iter = 500
+  )
+
+summary(fit)
+
+```
+
+* Stepwise build-up:
+  - between-level covariate: group
+```{r}
+model = mlts_model(
+  q = 2, 
+  fix_inno_vars = T,
+  ranef_pred = "group_bi",
+  fixef_zero = c("phi(1)_21", "phi(1)_12"),
+  incl_t0_effects = "phi(0)_21",
+  inno_covs_zero = T
+  )
+
+mlts_paths(model)
+
+fit = mlts_fit(
+  model = model, 
+  data = bolzen_spaced, #%>% filter(phase_bi == 1 & !(id %in% c(NA))), 
+  id = "id",
+  ts = c("negaff", "posaff"),
+  iter = 500,
+  center_covs = F
+  )
+
+summary(fit)
+
+```
+  
+
+  - interaction: 
+  VERY COMPLICATED ...
+```{r}
+model = mlts_model(
+  q = 3, 
+  fix_inno_vars = T,
+  ranef_pred = "group_bi",
+  fixef_zero = c("phi(1)_21", "phi(1)_12", "phi(1)_13", "phi(1)_23"),
+  inno_covs_zero = T,
+  
+  incl_t0_effects = c("phi(0)_13", "phi(0)_23", "phi(0)_21"),
+  incl_interaction_effects = c(
+    "phi(i)_1.1(1)3(0)",
+    "phi(i)_2.1(1)3(0)",
+    "phi(i)_2.2(1)3(0)"
+  ),
+  is_exogenous = 3,
+  )
+
+
+mlts_paths(model)
+
+fit = mlts_fit(
+  model = model, 
+  data = bolzen_spaced, #%>% filter(phase_bi == 1 & !(id %in% c(NA))), 
+  id = "id",
+  ts = c("negaff", "posaff", "phase_bi"),
+  iter = 500,
+  center_covs = F
+  )
+
+summary(fit, digits = 2, flag_signif = T)
+
+mlts_standardized(fit)
+
+```
+
+  - interaction via multiple-group model in intervention phase 
+Very similar results, but: does not consider the changes between baseline and intervention
+```{r}
+model = mlts_model(
+  q = 2, 
+  group = 2,
+  fix_inno_vars = T,
+  fixef_zero = c("phi(1)_21", "phi(1)_12"),
+  incl_t0_effects = "phi(0)_21",
+  inno_covs_zero = T
+  )
+
+mlts_paths(model)
+
+fit = mlts_fit(
+  model = model, 
+  data = bolzen_spaced %>% filter(phase_bi == 1 & !(id %in% c(NA))), 
+  id = "id",
+  ts = c("negaff", "posaff"),
+  iter = 500,
+  group = "group"
+  )
+
+summary(fit)
+
+mlts_plot(fit)
+
+```
+
+  - interaction via multiple-group model in GROUPxPHASE 
+
+```{r}
+model = mlts_model(
+  q = 2, 
+  group = 4,
+  fix_inno_vars = T,
+  fixef_zero = c("phi(1)_21", "phi(1)_12"),
+  incl_t0_effects = "phi(0)_21",
+  inno_covs_zero = T
+  )
+
+mlts_paths(model)
+
+bolzen_spaced$group_phase = paste0(bolzen_spaced$group, "_", bolzen_spaced$phase_bi)
+bolzen_spaced$id_phase = paste0(bolzen_spaced$id, "_", bolzen_spaced$phase_bi)
+
+fit = mlts_fit(
+  model = model, 
+  data = bolzen_spaced %>% filter(id != 30), 
+  id = "id_phase",
+  ts = c("negaff", "posaff"),
+  iter = 500,
+  group = "group_phase"
+  )
+
+summary(fit)
+
+mlts_plot(fit, what = "Fixed effect")
+mlts_plot(fit, what = "Fixed effect")
+```
+
+
+
+
+# SIMPLIFIED VAR MODEL:
+
+- SAME AS ABOVE BUT POS AND RNT affect with momentary link included as direct effect
+
+  SEEMS TO WORK:
+```{r works}
+model = mlts_model(
+  q = 2, 
+  fix_inno_vars = T,
+  fixef_zero = c("phi(1)_21", "phi(1)_12"),
+  incl_t0_effects = "phi(0)_21",
+  inno_covs_zero = T
+  )
+
+mlts_paths(model)
+
+fit = mlts_fit(
+  model = model, 
+  data = bolzen_spaced, #%>% filter(phase_bi == 1 & !(id %in% c(NA))), 
+  id = "id",
+  ts = c("rnt", "posaff"),
+  iter = 2000
+  )
+
+summary(fit)
+
+```
+
+* Stepwise build-up:
+  - between-level covariate: group
+```{r works2}
+model = mlts_model(
+  q = 2, 
+  fix_inno_vars = T,
+  ranef_pred = "group_bi",
+  fixef_zero = c("phi(1)_21", "phi(1)_12"),
+  incl_t0_effects = "phi(0)_21",
+  inno_covs_zero = T
+  )
+
+mlts_paths(model)
+
+fit = mlts_fit(
+  model = model, 
+  data = bolzen_spaced, #%>% filter(phase_bi == 1 & !(id %in% c(NA))), 
+  id = "id",
+  ts = c("rnt", "posaff"),
+  iter = 2000,
+  center_covs = F
+  )
+
+summary(fit)
+
+```
+  
+  - between-level covariate: group + prior differences in trait rnt
+```{r}
+
+model = mlts_model(
+  q = 2, 
+  fix_inno_vars = T,
+  ranef_pred = c("group_bi","pre_rtq_sum_cen"),
+  fixef_zero = c("phi(1)_21", "phi(1)_12"),
+  incl_t0_effects = "phi(0)_21",
+  inno_covs_zero = T
+  )
+
+summary(bolzen_spaced$pre_rtq_sum_cen)
+
+mlts_paths(model)
+
+fit = mlts_fit(
+  model = model, 
+  data = bolzen_spaced, #%>% filter(phase_bi == 1 & !(id %in% c(NA))), 
+  id = "id",
+  ts = c("rnt", "posaff"),
+  iter = 2000,
+  center_covs = F
+  )
+
+summary(fit)
+
+
+bolzen_spaced$pre
+```
+
+  - interaction: 
+  VERY COMPLICATED ...
+```{r}
+model = mlts_model(
+  q = 3, 
+  fix_inno_vars = T,
+  ranef_pred = "group_bi",
+  fixef_zero = c("phi(1)_21", "phi(1)_12", "phi(1)_13", "phi(1)_23"),
+  inno_covs_zero = T,
+  
+  incl_t0_effects = c("phi(0)_13", "phi(0)_23", "phi(0)_21"),
+  incl_interaction_effects = c(
+    "phi(i)_1.1(1)3(0)",
+    "phi(i)_2.1(1)3(0)",
+    "phi(i)_2.2(1)3(0)"
+  ),
+  is_exogenous = 3,
+  )
+
+
+mlts_paths(model)
+
+fit = mlts_fit(
+  model = model, 
+  data = bolzen_spaced, #%>% filter(phase_bi == 1 & !(id %in% c(NA))), 
+  id = "id",
+  ts = c("rnt", "posaff", "phase_bi"),
+  iter = 2000,
+  center_covs = F
+  )
+
+summary(fit, digits = 2, flag_signif = T)
+
+mlts_standardized(fit)
+
+```
+
+  - interaction via multiple-group model in intervention phase 
+Very similar results, but: does not consider the changes between baseline and intervention
+```{r}
+model = mlts_model(
+  q = 2, 
+  group = 2,
+  fix_inno_vars = T,
+  fixef_zero = c("phi(1)_21", "phi(1)_12"),
+  incl_t0_effects = "phi(0)_21",
+  inno_covs_zero = T
+  )
+
+mlts_paths(model)
+
+fit = mlts_fit(
+  model = model, 
+  data = bolzen_spaced %>% filter(phase_bi == 1 & !(id %in% c(36,51,88))), 
+  id = "id",
+  ts = c("rnt", "posaff"),
+  iter = 2000,
+  group = "group"
+  )
+
+summary(fit)
+
+mlts_plot(fit)
+
+```
+
+  - interaction via multiple-group model in GROUPxPHASE 
+
+```{r}
+model = mlts_model(
+  q = 2, 
+  group = 4,
+  fix_inno_vars = T,
+  fixef_zero = c("phi(1)_21", "phi(1)_12"),
+  incl_t0_effects = "phi(0)_21",
+  inno_covs_zero = T
+  )
+
+mlts_paths(model)
+
+bolzen_spaced$group_phase = paste0(bolzen_spaced$group, "_", bolzen_spaced$phase_bi)
+bolzen_spaced$id_phase = paste0(bolzen_spaced$id, "_", bolzen_spaced$phase_bi)
+
+fit = mlts_fit(
+  model = model, 
+  data = bolzen_spaced %>% filter(!(id %in% c(19,36,51,62,88))), 
+  id = "id_phase",
+  ts = c("rnt", "posaff"),
+  iter = 2000,
+  group = "group_phase"
+  )
+
+summary(fit)
+
+mlts_plot(fit, what = "Fixed effect")
+mlts_plot(fit, what = "Fixed effect")
+```
+
+
+

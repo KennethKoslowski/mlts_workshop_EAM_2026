@@ -1,0 +1,833 @@
+
+# Practical Aspects - What can go wrong? {#practical-aspects}
+
+---
+
+## Varying Measurement Intervals
+
+- Discrete-time DSEM models require equidistant measurement intervals 
+  - Strength of time-lagged relation depends on the measurement intervals
+  - If ignored, AR- and CL effects lack a clear interpretation
+
+- Implemented solution (as in Mplus; Muthén & Muthén, 2017):
+  - Missing value insertion strategy (`tinterval`; Asparouhov et al., 2018)
+  - Allows approximation of continuous-time lagged effects for specific time intervals
+
+:::{.references}
+
+Asparouhov, T., Hamaker, E. L., & Muthén, B. O. (2018). Dynamic Structural Equation Models. *Structural Equation Modeling: A Multidisciplinary Journal*, *25(3)*, 359–388. <https://doi.org/10.1080/10705511.2017.1406803>
+
+Muthén, L. K., & Muthén, B. O. (2017). *Mplus user’s guide* (8th edn). Muthén & Muthén.
+
+:::
+
+. . .
+
+:::{.vspace}
+:::  
+
+### How does it work?
+  
+
+  
+
+---
+
+## Fixed Sampling Protocol
+
+#### Naive Approach (without correction)
+
+::: {.column width="25%"}
+
+```{r}
+options(knitr.kable.NA = 'NA')
+set.seed(1)
+df = data.frame("ID"   = rep(1, times = 6), 
+           "beep" = c(1,2,5,6,7,9),
+           "Y"    = sample(size = 6, x = c(1:7), replace = T)
+           )
+df$Y[4] <- NA
+
+knitr::kable(df, booktabs = TRUE, align = "ccc") %>%
+  kableExtra::kable_styling(font_size = 25) %>%
+  kableExtra::kable_classic()
+
+```
+
+:::
+
+::: {.column width="10%"}
+
+:::
+
+::: {.column width="65%"}
+
+```r
+mlts_fit(...)
+```
+
+```{r, warning = F, message=F, eval = F}
+#| fig-width: 7
+#| fig-height: 1.5
+
+df %>%
+  mutate(row = 1:n()) %>%
+  mutate(beep_lab = ifelse(is.na(Y), "NA", beep)) %>%
+  ggplot(., aes(x = row, y = 0.35)) + 
+  geom_rect(aes(xmin = row-0.25, ymin = 0.1, ymax = 0.6, xmax = row+0.25),
+              fill = "lightgray", color = "black") +
+  geom_segment(aes(x = 1.25:6.25, y = 0.35, 
+                   xend = 1.75:6.75, yend = 0.35),
+             color = "darkgreen",
+    arrow = arrow(type = "closed", length = unit(0.2, units = "cm"))
+  ) +
+  geom_text(aes(label = beep_lab, 
+                x = row)) +
+#  labs(title = "Naive Approach") + 
+  scale_x_continuous(breaks = 1:9) +
+  scale_y_continuous(limits = c(0, 0.7)) +
+  theme_classic() + 
+  theme(
+    axis.line.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+```
+
+```{r, warning = F, message=F}
+#| fig-width: 7
+#| fig-height: 1.5
+
+df %>%
+  mutate(row = 1:n()) %>%
+  mutate(beepx1 = beep+0.25,
+         beepx2 = lead(beep)-0.25) %>%
+  mutate(beep_lab = ifelse(is.na(Y), "NA", beep)) %>%
+  ggplot(., aes(x = beep, y = 0.35)) + 
+  geom_rect(aes(xmin = beep-0.25, ymin = 0.1, ymax = 0.6, xmax = beep+0.25),
+              fill = "lightgray", color = "black") +
+  geom_segment(aes(x = beepx1, y = 0.35, 
+                   xend = beepx2, yend = 0.35),
+             color = "darkgreen",
+    arrow = arrow(type = "closed", length = unit(0.2, units = "cm"))
+  ) +
+  geom_text(aes(label = beep_lab, 
+                x = beep)) +
+#  labs(title = "Naive Approach") + 
+  scale_x_continuous(breaks = 1:9) +
+  scale_y_continuous(limits = c(0, 0.7)) +
+  theme_classic() + 
+  theme(
+    axis.line.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+```
+
+:::
+
+#### Using `tinterval`
+
+::: {.column width="25%"}
+
+```{r}
+set.seed(1)
+df = data.frame("ID"   = rep(1, times = 6), 
+           "beep" = c(1,2,5,6,7,9),
+           "Y"    = sample(size = 6, x = c(1:7), replace = T)
+           )
+df$Y[4] <- NA
+
+df %>%
+  mlts::create_missings(tinterval = 1, id = "ID", time = "beep") %>%
+  select(ID, int_time, beep, Y) %>%
+  knitr::kable(., booktabs = TRUE, align = "ccccc") %>%
+  kableExtra::kable_styling(font_size = 25) %>%
+  row_spec(row = c(3,4,8), color = "darkgreen") %>%
+  kableExtra::kable_classic()
+
+```
+
+:::
+
+::: {.column width="10%"}
+
+:::
+
+::: {.column width="65%"}
+```r
+mlts_fit(..., tinterval = 1, time = "beep")
+```
+```{r, warning = F, message=F}
+#| fig-width: 7
+#| fig-height: 1.5
+df %>%
+  mlts::create_missings(tinterval = 1, id = "ID", time = "beep") %>%
+  mutate(beep_lab = ifelse(is.na(Y), "NA", beep)) %>%
+  ggplot(.,aes(x = beep, y = 0.35)) + 
+  geom_rect(aes(xmin = int_time-0.25, ymin = 0.1, ymax = 0.6, xmax = int_time+0.25),
+              fill = "lightgray", color = "black") +
+  geom_segment(aes(x = 1.25:9.25, y = 0.35, xend = 1.75:9.75, yend = 0.35),
+             color = "darkgreen",
+    arrow = arrow(type = "closed", length = unit(0.2, units = "cm"))
+  ) +
+  geom_text(aes(label = beep_lab, 
+                x = int_time)) +
+  labs(title = "After approximation") + 
+  scale_x_continuous(breaks = 1:9) +
+  scale_y_continuous(limits = c(0, 0.7)) +
+  theme_classic() + 
+  theme(
+    axis.line.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+```
+
+:::
+
+
+
+## Random Sampling Protocol
+
+#### Naive Approach (without correction)
+
+::: {.column width="25%"}
+
+```{r}
+set.seed(1)
+df = data.frame("ID"   = rep(1, times = 6), 
+           "time_diff" = as.integer(c(0, runif(n = 5, min = 30, max = 90))),
+           "time" = NA,
+           "Y"    = sample(size = 6, x = c(1:7), replace = T)
+           )
+
+
+df$time = as.integer(cumsum(df$time_diff))
+
+
+knitr::kable(df, booktabs = TRUE, align = "ccc") %>%
+  kableExtra::kable_styling(font_size = 25) %>%
+  kableExtra::kable_classic()
+
+```
+
+:::
+
+::: {.column width="10%"}
+
+:::
+
+::: {.column width="65%"}
+```r
+mlts_fit(...)
+```
+```{r, warning = F, message=F}
+#| fig-width: 7
+#| fig-height: 1.5
+
+df %>%
+  mutate(row = 1:n()) %>%
+  mutate(beepx1 = time+5,
+         beepx2 = lead(time)-5) %>%
+  ggplot(., aes(x = time, y = 0.35)) + 
+  geom_rect(aes(xmin = time-5, ymin = 0.1, ymax = 0.6, xmax = time+5),
+              fill = "lightgray", color = "black") +
+  geom_segment(aes(x = beepx1, y = 0.35, 
+                   xend = beepx2, yend = 0.35),
+             color = "darkgreen",
+    arrow = arrow(type = "closed", length = unit(0.2, units = "cm"))
+  ) +
+#  labs(title = "Naive Approach") + 
+  scale_x_continuous(breaks = seq(from=0, to= 300, by = 60)) +
+  scale_y_continuous(limits = c(0, 0.7)) +
+  theme_classic() + 
+  theme(
+    axis.line.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+```
+
+:::
+
+#### Using `tinterval`
+
+::: {.column width="25%"}
+
+```{r}
+
+df %>%
+  mlts::create_missings(tinterval = 45, id = "ID", time = "time") %>%
+  select(ID, int_time,time_diff, time, Y) %>%
+  knitr::kable(., booktabs = TRUE, align = "ccccc") %>%
+  row_spec(row = c(5), color = "darkgreen") %>%
+  kableExtra::kable_styling(font_size = 25) %>%
+  kableExtra::kable_classic()
+
+```
+
+:::
+
+::: {.column width="10%"}
+
+:::
+
+::: {.column width="65%"}
+```r
+mlts_fit(..., tinterval = 45, time = "time")
+```
+```{r, warning = F, message=F}
+#| fig-width: 7
+#| fig-height: 1.5
+df %>%
+  mlts::create_missings(tinterval = 45, id = "ID", time = "time") %>%
+  mutate(beep_lab = ifelse(is.na(Y), "NA", int_time)) %>%
+  ggplot(.,aes(x = int_time, y = 0.35)) + 
+  geom_rect(aes(xmin = int_time-0.25, ymin = 0.1, ymax = 0.6, xmax = int_time+0.25),
+              fill = "lightgray", color = "black") +
+  geom_segment(aes(x = 1.25:7.25, y = 0.35, xend = 1.75:7.75, yend = 0.35),
+             color = "darkgreen",
+    arrow = arrow(type = "closed", length = unit(0.2, units = "cm"))
+  ) +
+  geom_text(aes(label = beep_lab, 
+                x = int_time)) +
+  labs(title = "After approximation") + 
+  scale_x_continuous(breaks = 1:9) +
+  scale_y_continuous(limits = c(0, 0.7)) +
+  theme_classic() + 
+  theme(
+    axis.line.y = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+```
+
+:::
+
+
+--- 
+
+
+## Application to Empirical Dataset
+
+```{r}
+#| include: false
+
+load("./downloaded_data/bolzen_grid.rda")
+```
+
+
+- Running `prepare_bolzen.R` creates a version of the dataset (i.e., `bolzen_grid`) where a new variable is added (`int_time_spaced`)
+- `int_time_spaced` can be used as an index variable for `tinterval` 
+  - results in 4 additional missing between each `time_window`, and 10 missing values for the overnight period being added  
+
+::::{.columns}
+::: {.column width="65%"}
+
+```{r}
+
+bolzen_grid %>%
+  filter(id == 4 & day_counter < 3) %>%
+  select(id, obs_counter, day_counter, time_window, timepoint, time_diff, int_time_spaced, posaff) %>%
+  knitr::kable(., align = "c", booktabs = TRUE) %>%
+  kableExtra::kable_styling(font_size = 25) %>%
+  kableExtra::kable_classic() %>%
+  column_spec(column = 7, color = "darkgreen", bold = T)
+```
+
+:::
+
+::: {.column width="5%"}
+
+:::
+
+::: {.column width="30%"}
+
+```{r}
+#| eval: false
+#| echo: true
+#| code-line-numbers: 1-10|6-7|8 
+mlts_fit(
+    model = model, 
+    data = bolzen_grid, 
+    id = "id", 
+    ts = "posaff",
+    time  = "int_time_spaced", 
+    tinterval = 1,
+    max_NA_seq = 4,
+    iter = 2000
+    )
+```
+
+:::
+::::
+
+---
+
+```{r, eval = F}
+
+### FIT THE MODEL 3 TIMES
+model = mlts_model(q = 1)
+V1 = mlts_fit(model = model, data = bolzen, id = "id", ts = "posaff",
+              iter = 2000)
+
+V2.1 = mlts_fit(model = model, data = bolzen_grid, id = "id", ts = "posaff",
+                time  = "int_time_spaced", tinterval = 1, max_NA_seq = 1,
+                iter = 2000)
+V2.2 = mlts_fit(model = model, data = bolzen_grid, id = "id", ts = "posaff",
+                time  = "int_time_spaced", tinterval = 1, max_NA_seq = 2,
+                iter = 2000)
+V2.3 = mlts_fit(model = model, data = bolzen_grid, id = "id", ts = "posaff",
+                time  = "int_time_spaced", tinterval = 1, max_NA_seq = 3,
+                iter = 2000)
+V2.4 = mlts_fit(model = model, data = bolzen_grid, id = "id", ts = "posaff",
+                time  = "int_time_spaced", tinterval = 1, max_NA_seq = 4,
+                iter = 2000)
+V2.5 = mlts_fit(model = model, data = bolzen_grid, id = "id", ts = "posaff",
+                time  = "int_time_spaced", tinterval = 1,
+                iter = 2000)
+
+fits = list(
+  V1, V2.1, V2.2, V2.3, V2.4, V2.5
+)
+
+dir.create("04-practical_aspects")
+save(fits, file = "04-practical_aspects/tinterval_fits.Rdata")
+```
+
+## Effect of Different Correction Strategies
+
+- Here illustrated for the time series of one individual (`posaff`)
+
+```{r}
+#| fig-width: 14
+#| fig-height: 6
+
+labels = c("No Tinterval", "Tinterval (max_NA_seq = 1)", 
+           "Tinterval (max_NA_seq = 2)", "Tinterval (max_NA_seq = 3)",
+           "Tinterval (max_NA_seq = 4)", "Tinterval (without restriction)")
+
+load("sections/04-practical_aspects/tinterval_fits.Rdata")
+
+dats = do.call(plyr::rbind.fill,lapply(c(1,2,5,6), function(x){
+    
+    dat = fits[[x]]$data %>% filter(id == 1)
+    dat$Est = labels[x]
+    dat %>%
+      mutate(row = 1:n())
+  }))
+
+ggplot(dats, aes(x = row, y = posaff)) +
+  geom_point(aes(color = obs_counter)) +
+  geom_line() +
+  ggh4x::facet_grid2(rows = vars(Est), strip = ggh4x::strip_split(position = "top")) +
+  theme_classic() +
+  theme(
+    strip.background = element_blank(),
+    strip.text = element_text(face = 2,size = 16),
+    panel.spacing.y = unit(x = 0.6, units = "cm"),
+    legend.position = "none"
+  )
+
+
+```
+
+. . .
+
+#### How does this affect estimates derived from the AR(1) model?
+
+## Consequences for Population Parameter Estimates
+
+- Fixed effects
+
+```{r}
+#| fig-width: 12
+#| fig-height: 4
+
+all_pars = do.call(rbind, lapply(1:length(fits), function(x){
+  cbind("label" = labels[x], fits[[x]]$pop.pars.summary)
+}))
+
+all_pars %>%
+  filter(Param %in% c("mu_1", "phi(1)_11", "ln.sigma2_1")) %>% 
+  mutate(Param = factor(Param, levels = c("mu_1", "phi(1)_11", "ln.sigma2_1"))) %>%
+  ggplot(., aes(x = label, y = mean, color = label)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = `2.5%`, ymax = `97.5%`), width = 0.2) +
+  geom_line(aes(group = Param), alpha = 0.5, color = "darkgrey") +
+  facet_wrap(~Param, scales = "free_y") +
+  scale_color_manual(" ", values = RColorBrewer::brewer.pal(name = "Greens", n = 9)[4:9]) + 
+  labs(y = "Posterior Mean (95% CI)", x = NULL) +
+  theme_classic(base_size = 20) +
+  theme(axis.text.x = element_blank(),
+        legend.position = "top")
+  
+```
+
+
+## Consequences for Person-Specific Estimates
+
+::: {.column width="70%"}
+
+*Rank-order correlations between individual AR estimates*
+
+```{r}
+options(knitr.kable.NA = '')
+# individual AR effects 
+pars = do.call(cbind, lapply(1:length(fits), function(x){
+    
+    dat = data.frame(
+      "AR" = fits[[x]]$person.pars.summary[fits[[x]]$person.pars.summary$Param == "phi(1)_11", "mean"])
+    dat[,1] = as.numeric(dat[,1])
+    colnames(dat) <- labels[x]
+    dat
+  }))
+
+tab = round(cor(pars, method = "spearman"),2) 
+colnames(tab) <- 1:ncol(pars)
+row.names(tab) <- paste0(1:ncol(pars), ". ", rownames(tab))
+tab[upper.tri(tab)] <- NA
+
+cap = "Rank-order correlations between individual AR estimates across the different modeling options"
+
+tab %>%
+  knitr::kable(., booktabs = TRUE, digits = 2, align = "r",
+               ) %>%
+  kableExtra::kable_classic() %>%
+  kableExtra::kable_styling(font_size = 35, position = "float_left")
+
+```
+
+:::
+
+
+## Consequences for Estimation Times
+
+::: {.column width="50%"}
+
+```{r}
+# estimation times 
+times = do.call(rbind, lapply(1:length(fits), function(x){
+    
+    cbind.data.frame(
+      "Est. Strategy" = labels[x],
+      "Est. Time [min]" = round(max(apply(rstan::get_elapsed_time(fits[[x]]$stanfit),1,sum)) / 60,2),
+      "% missing" = round(sum(is.na(fits[[x]]$data$posaff)) / length(fits[[x]]$data$posaff) * 100, 2) 
+    )
+  }))
+
+
+knitr::kable(times, booktabs = TRUE) %>%
+  kableExtra::kable_classic() %>%
+  kableExtra::kable_styling(font_size = 30, position = "float_left")
+
+```
+
+:::
+
+. . .
+
+::: {.vspace}
+:::
+
+- Using the missing value insertion strategy is computationally costly 
+- Ideally, use full `tinterval`-functionality, BUT:
+  - Increased estimation times 
+  - Can affect model convergence
+- In practice, compromise between granularity of recovering the temporal order and estimation performance by limiting the number of consecutive missing values
+  - Sensitivity analyses (i.e., different values for `max_NA_seq`)
+  - Especially relevant for complex models
+
+
+---
+
+## Common Issues I
+
+
+::: {.column width="30%"}
+**Factor**
+:::
+
+::: {.column width="20%"}
+**Impact**
+:::
+
+::: {.column width="25%"}
+**Diagnostics**
+
+:::
+
+::: {.column width="25%"}
+**Potential Solution**
+:::
+
+
+
+
+::: {.column width="30%"}
+Clusters with many `NA`s
+:::
+
+::: {.column width="20%"}
+↓ Model convergence
+
+↑ Estimation times 
+:::
+
+::: {.column width="25%"}
+
+:::
+
+::: {.column width="25%"}
+Remove individual(s) from analysis
+:::
+
+
+. . .
+
+
+::: {.column width="30%"}
+No within-person variance  
+:::
+
+::: {.column width="20%"}
+No sampling 
+:::
+
+::: {.column width="25%"}
+`mlts_fit()` will print a warning message
+:::
+
+::: {.column width="25%"}
+Remove individual(s) from analysis
+:::
+
+
+. . .
+
+
+::: {.column width="30%"}
+Large gaps in the continuous time variable 
+(e.g., due to technical errors)  
+:::
+
+::: {.column width="20%"}
+↑ Estimation times 
+
+(↓ Model convergence)
+:::
+
+::: {.column width="25%"}
+Inspect prior to model estimation
+:::
+
+::: {.column width="25%"}
+Use `max_NA_seq` in `mlts_fit()`
+:::
+
+
+. . .
+
+::: {.column width="30%"}
+Small random effect variance (oftentimes CL effects in VAR models)  
+:::
+
+::: {.column width="20%"}
+↓ Model convergence
+
+↑ Estimation times 
+:::
+
+::: {.column width="25%"}
+Inspect estimates and convergence criteria for each parameter
+:::
+
+::: {.column width="25%"}
+- Fix random effects variance to zero (i.e., `ranef_zero` argument)
+
+- Remove correlation with other random effects (i.e., `ranef_iid` argument)
+:::
+
+
+
+## Common Issues II
+
+
+::: {.column width="30%"}
+**Factor**
+:::
+
+::: {.column width="20%"}
+**Impact**
+:::
+
+::: {.column width="25%"}
+**Diagnostics**
+
+:::
+
+::: {.column width="25%"}
+**Potential Solution**
+:::
+
+
+
+::: {.column width="30%"}
+Misalignment of parameter priors and variables' scales 
+(e.g., visual analogue scales from 0 to 100)
+:::
+
+::: {.column width="20%"}
+↓ Model convergence
+
+↑ Estimation times 
+:::
+
+::: {.column width="25%"}
+- `mlts_fit()` may print a message, but can be undetected
+- Inspect priors in `mlts_model()` object before model estimation
+:::
+
+::: {.column width="25%"}
+- If possible: consider (re-)scaling the variables close to $N(0,1)$
+- More advanced: 
+  - Adjust priors
+  - BUT: Stan is generally fastest when parameters are in the range of standard normally distributed variables 
+:::
+
+## Warning Messages and What to do?
+
+For in-depth information:
+
+  - Diagnostics provided by Stan (<https://mc-stan.org/learn-stan/diagnostics-warnings.html>)
+  - Hamilton Monte Carlo and Diagnostics (Betancourt, 2017)
+  - Graphical checks for model convergence and diagnostics (Gabry et al., 2019)
+
+::: {.vspace}
+:::
+
+:::: {.columns}
+
+::: {.column width="30%"}
+
+#### Large Rhat and/or ESS too low
+
+- Try running the model with more iterations 
+- Inspect trace plots:
+
+:::
+
+::: {.column width="5%"}
+:::
+
+::: {.column width="65%"}
+```{r}
+#| fig-width: 14
+#| fig-height: 6
+
+load("sections/05-model_extensions/1.1_VAR_500.Rdata")
+bayesplot::mcmc_trace(
+  fit_VAR$posteriors[,,c("mu_1", "sigma_phi(1)_12")],
+  facet_args = list(ncol = 1)
+  )
+```
+:::
+
+::::
+
+:::{.references}
+Betancourt, M. J. (2017). A Conceptual Introduction to Hamiltonian Monte Carlo (Version 2). *arXiv*. <https://doi.org/10.48550/ARXIV.1701.02434>
+
+Gabry, J., Simpson, D., Vehtari, A., Betancourt, M., & Gelman, A. (2019). Visualization in Bayesian Workflow. *Journal of the Royal Statistical Society Series A: Statistics in Society, 182(2)*, 389–402. <https://doi.org/10.1111/rssa.12378>
+
+:::
+
+---
+
+## Warning Messages and What to do?
+
+#### Divergent Transitions 
+
+- Can indicate that parameter estimates may not be trustworthy
+  - However, false-positives are possible (for more details on this issue, see Gabry et al., 2019)
+  - Suggested solution is to run graphical checks
+    - For example, parallel co-ordinates plots as shown below
+
+```r
+# save flagged MCMC draws
+np <- bayesplot::nuts_params(fit$stanfit)
+
+# create plot
+bayesplot::mcmc_parcoord(
+  fit$posteriors, 
+  # for standardized parameters, set:
+  transformations = function(x){ (x - mean(x)) / sd(x)},
+  np = np, alpha = 0.1) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+```
+
+```{r, eval = F}
+load("../sections/05-model_extensions/1.1_VAR_2000.Rdata")
+np <- bayesplot::nuts_params(fit_VAR_l$stanfit)
+bayesplot::mcmc_parcoord(fit_VAR_l$posteriors, 
+                         transformations = function(x){ (x - mean(x)) / sd(x)},
+                         np = np, alpha = 0.1) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+ggsave(filename = "04-practical_aspects/divergent_transistion_illustration.png",
+       width = 12, height = 5.5)
+
+```
+
+
+:::{.references}
+Betancourt, M. J. (2017). A Conceptual Introduction to Hamiltonian Monte Carlo (Version 2). *arXiv*. <https://doi.org/10.48550/ARXIV.1701.02434>
+
+Gabry, J., Simpson, D., Vehtari, A., Betancourt, M., & Gelman, A. (2019). Visualization in Bayesian Workflow. *Journal of the Royal Statistical Society Series A: Statistics in Society, 182(2)*, 389–402. <https://doi.org/10.1111/rssa.12378>
+
+
+:::
+
+---
+
+
+#### Divergent Transitions 
+
+- Can indicate that parameter estimates may not be trustworthy
+  - However, false-positives are possible (for more details on this issue, see Gabry et al., 2019)
+  - Suggested solution is to run graphical checks
+    - For example, parallel co-ordinates plots as shown below
+
+```{r, eval = F}
+load("sections/05-model_extensions/1.1_VAR_2000.Rdata")
+np <- bayesplot::nuts_params(fit_VAR_l$stanfit)
+bayesplot::mcmc_parcoord(fit_VAR_l$posteriors, 
+                         transformations = function(x){ (x - mean(x)) / sd(x)},
+                         np = np, alpha = 0.1) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+ggsave(filename = "04-practical_aspects/divergent_transistion_illustration.png",
+       width = 12, height = 5.5)
+
+```
+
+```{r}
+#| fig-width: 14
+#| fig-height: 4.5
+knitr::include_graphics(path = "sections/04-practical_aspects/divergent_transistion_illustration.png")
+```
+
+
+:::{.references}
+Betancourt, M. J. (2017). A Conceptual Introduction to Hamiltonian Monte Carlo (Version 2). *arXiv*. <https://doi.org/10.48550/ARXIV.1701.02434>
+
+Gabry, J., Simpson, D., Vehtari, A., Betancourt, M., & Gelman, A. (2019). Visualization in Bayesian Workflow. *Journal of the Royal Statistical Society Series A: Statistics in Society, 182(2)*, 389–402. <https://doi.org/10.1111/rssa.12378>
+
+
+:::
+
+---

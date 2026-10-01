@@ -1,0 +1,26 @@
+---
+title: "Introduction to Bayesian Multilevel Latent Time Series Models with the R-package `mlts`"
+subtitle: "An Applied Workshop Using the mlts R Package"
+author: Kenneth Koslowski & Fabian F. Münch
+---
+
+```{r}
+#| include: false
+source("R/setup.R")
+```
+
+
+<!-- {{< include sections/01-welcome.qmd >}} -->
+
+<!-- {{< include sections/02-intro_dsem.qmd >}} -->
+
+<!-- {{< include sections/03-live_session1.qmd >}} -->
+
+<!-- {{< include sections/04-practical_aspects.qmd >}} -->
+
+{{< include sections/05-model_extensions.qmd >}}
+
+<!-- {{< include sections/06-live_session2.qmd >}} -->
+
+<!-- {{< include sections/07-wrap_up.qmd >}} -->
+

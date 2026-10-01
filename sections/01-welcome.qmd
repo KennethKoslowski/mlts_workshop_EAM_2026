@@ -1,0 +1,285 @@
+
+# Welcome!
+
+## Who are we?
+
+:::: {.columns}
+
+::: {.column width="47.5%"}
+
+
+![](./img/kenneth.jpg){width="30%"}
+
+### Kenneth Koslowski
+
+* Doctoral researcher at University of Leipzig
+* Author and maintainer of `mlts` package, working on general model implementation, new modeling features, and pre- and post-processing functions
+* Research areas: multilevel latent time series analyses, intensive longitudinal data
+
+:::
+
+::: {.column width="5%"}
+
+:::
+
+::: {.column width="47.5%"}
+
+![](./img/fabi.jpg){width="30%"}
+
+### Fabian Münch
+
+* Doctoral researcher at University of Jena
+* Author and maintainer of `mlts` package, working mostly on pre-processing functions
+* Research areas: latent state-trait theory, causality, time-varying confounding in panel and intensive longitudinal data
+
+:::
+
+::::
+
+
+
+<!-- --- -->
+
+<!-- ## Who are you?  -->
+
+<!-- * Do you have experience with DSEM / (V)AR models? -->
+<!-- * What are your research areas? -->
+<!-- * Did you work with Mplus before? -->
+<!-- * Did you work with `mlts` before? -->
+
+<!-- --- -->
+
+## Who are you?
+
+
+:::: {.columns}
+
+::: {.column width="47.5%"}
+
+### Background
+
+* What is your name?
+* What are your research areas?
+* Do you have experience with DSEM / (V)AR models?
+
+
+### Software
+
+* Did you work with Mplus before?
+* Did you work with `mlts` before?
+
+
+### What are you looking for today?
+
+* Is there something in particular you would like to discuss or learn?
+
+:::
+
+::: {.column width="5%"}
+
+:::
+
+::: {.column width="47.5%"}
+
+### Prerequisites for today
+
+* R and RStudio
+
+1. [R](https://www.r-project.org/)
+2. [RStudio](https://posit.co/downloads)
+
+* If you haven't installed them already, now is a good time!
+
+:::
+
+::::
+
+
+<!-- ## Today's program -->
+
+
+
+<!-- | Time (est.) | | -->
+<!-- |:-----|:------| -->
+<!-- | 9.00 to 9.45 | Welcome <br> Intro to DSEM and multilevel latent time series analysis <br> Basic workflow with `mlts` | -->
+<!-- | 9.45 to 10.15 | Hands-on session with example data | -->
+<!-- | 10.15 to 11.00 | Modeling options in mlts: -->
+
+
+<!-- ---  -->
+
+## Today's program I
+
+:::: {.columns}
+::: {.column width="25%"}
+**9.00 to 9.45**
+:::
+::: {.column width="75%"}
+- Welcome
+- Introduction to DSEM and multilevel latent time series analysis
+- Basic workflow with `mlts` and simple autoregressive model
+- Including restrictions in the model
+- Including higher lags
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**9.45 to 10.15**
+:::
+::: {.column width="75%"}
+- Hands-on session with example data
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**10.15 to 10.45**
+:::
+::: {.column width="75%"}
+- Practical Recommendations
+  - Missing data
+  - Unequal time intervals
+  - Number of MCMC iterations
+
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**10.45 to 11.00**
+:::
+::: {.column width="75%"}
+- Coffee Break
+:::
+::::
+
+
+
+## Today's program II
+
+
+
+:::: {.columns}
+::: {.column width="25%"}
+**11.00 to 11.45**
+:::
+::: {.column width="75%"}
+- Model extensions in `mlts`
+  - Vector autoregressive models
+  - The `tinterval` function
+  - What to do with innovation covariances
+  - Adding covariates on the between level as predictors or outcomes of random effects
+  * Multiple group models
+  * Interaction effects on the dynamic within-level
+  * Multiple-indicator factor models
+  * Censored models
+  * General tips on the modeling process
+:::
+::::
+
+
+
+:::: {.columns}
+::: {.column width="25%"}
+**11.45 to 12.30**
+:::
+::: {.column width="75%"}
+- Hands-on session
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**12.30 to 13.00**
+:::
+::: {.column width="75%"}
+- Wrap-up and Q&A
+:::
+::::
+
+
+
+
+
+--- 
+
+
+
+## Get to the Material
+
+
+### Get the workshop materials from our workshop Github:
+
+#### With package `usethis` (recommended)
+
+```{r}
+#| echo: true
+#| eval: false
+
+install.packages("usethis")
+usethis::create_from_github("https://github.com/KennethKoslowski/mlts_workshop_SAA2026")
+```
+
+* This should download the workshop directory and open the R project file directly
+
+
+#### Or download the Github project as ZIP file:
+
+1. Open the link: [https://github.com/KennethKoslowski/mlts_workshop_SAA2026](https://github.com/KennethKoslowski/mlts_workshop_SAA2026)
+2. Click the green Code button, then Download ZIP
+3. Extract the ZIP file
+4. Open the `SAA_2026_html.Rproj` file by clicking it (it should open in a new R session)
+
+
+---
+
+## Things to Prepare for the Workshop
+
+#### Quick overview of the workshop directory
+
+The workshop directory from Github contains all the workshop materials.
+
+* Follow the slides by opening `index.html` in the main directory in your browser
+* The directory `live_session` contains scripts (and solutions) for the hands-on session exercises. You can directly work within the script or create them yourself!
+
+:::: {.columns}
+
+::: {.column width = "45%"}
+
+#### Required packages
+
+* For following along all the examples by yourself, you need the current development version of `mlts`
+* We prepared the R script `install_packages.R` in the directory `live_session`. Please run it once by opening it and running all lines of code or copy in the R console:
+
+```{r}
+#| echo: true
+#| eval: false
+
+source("./live_session/install_packages.R")
+```
+
+* If you are asked to install updates, click yes to all. It might take a few minutes!
+
+:::
+
+::: {.column width = "5%"}
+:::
+
+::: {.column width = "45%"}
+#### Data
+
+* We use data from a study by @Bolzenkoetter2024 (openly available)
+* To get the data locally, please run the script `bolzen_prepare.R` in the directory `live_session`:
+
+```{r}
+#| echo: true
+#| eval: false
+
+source("./live_session/bolzen_prepare.R")
+```
+
+* This will generate data files in a directory called `downloaded_data`
+
+:::
+::::

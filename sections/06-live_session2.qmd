@@ -1,5 +1,5 @@
 
-# Live Session II (45 min)
+# Live Session II (2 x 30 min)
 
 * Session aims:
   * Become familiar with some of the advanced modeling options 

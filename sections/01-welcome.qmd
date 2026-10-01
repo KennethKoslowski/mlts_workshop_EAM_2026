@@ -108,98 +108,141 @@
 
 <!-- ---  -->
 
-## Today's program I
+## Today's program I (morning)
 
 :::: {.columns}
 ::: {.column width="25%"}
-**9.00 to 9.45**
+**9.00 to 9.30**
 :::
 ::: {.column width="75%"}
-- Welcome
+- Welcome and setup check
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**9.30 to 10.15**
+:::
+::: {.column width="75%"}
 - Introduction to DSEM and multilevel latent time series analysis
-- Basic workflow with `mlts` and simple autoregressive model
-- Including restrictions in the model
-- Including higher lags
+- Basic workflow with `mlts`: simple autoregressive model, restrictions, higher lags
 :::
 ::::
 
 :::: {.columns}
 ::: {.column width="25%"}
-**9.45 to 10.15**
+**10.15 to 10.35**
 :::
 ::: {.column width="75%"}
-- Hands-on session with example data
+- Short input: Bayesian estimation and MCMC diagnostics
 :::
 ::::
 
 :::: {.columns}
 ::: {.column width="25%"}
-**10.15 to 10.45**
+**10.35 to 10.50**
 :::
 ::: {.column width="75%"}
-- Practical Recommendations
-  - Missing data
-  - Unequal time intervals
-  - Number of MCMC iterations
-
+- Break
 :::
 ::::
 
 :::: {.columns}
 ::: {.column width="25%"}
-**10.45 to 11.00**
+**10.50 to 12.00**
 :::
 ::: {.column width="75%"}
-- Coffee Break
+- Live Session I: hands-on with example data
 :::
 ::::
 
-
-
-## Today's program II
-
-
-
 :::: {.columns}
 ::: {.column width="25%"}
-**11.00 to 11.45**
+**12.00 to 13.00**
 :::
 ::: {.column width="75%"}
-- Model extensions in `mlts`
-  - Vector autoregressive models
-  - The `tinterval` function
-  - What to do with innovation covariances
-  - Adding covariates on the between level as predictors or outcomes of random effects
-  * Multiple group models
-  * Interaction effects on the dynamic within-level
-  * Multiple-indicator factor models
-  * Censored models
-  * General tips on the modeling process
+- Lunch break
 :::
 ::::
 
 
+## Today's program II (afternoon)
 
 :::: {.columns}
 ::: {.column width="25%"}
-**11.45 to 12.30**
+**13.00 to 13.25**
 :::
 ::: {.column width="75%"}
-- Hands-on session
+- Practical recommendations
+- Missing data, unequal time intervals, common issues
 :::
 ::::
 
 :::: {.columns}
 ::: {.column width="25%"}
-**12.30 to 13.00**
+**13.25 to 13.50**
+:::
+::: {.column width="75%"}
+- Simulating VAR data with `mlts`
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**13.50 to 14.20**
+:::
+::: {.column width="75%"}
+- Model extensions I
+- Vector autoregressive models, the `tinterval` function, innovation covariances
+- Between-level covariates as predictors or outcomes of random effects
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**14.20 to 14.50**
+:::
+::: {.column width="75%"}
+- Live Session II (part A)
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**14.50 to 15.05**
+:::
+::: {.column width="75%"}
+- Break
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**15.05 to 15.30**
+:::
+::: {.column width="75%"}
+- Model extensions II
+- Multiple group models, interaction effects on the dynamic within-level, multiple-indicator factor models, censored models, general tips on the modeling process
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**15.30 to 16.00**
+:::
+::: {.column width="75%"}
+- Live Session II (part B)
+:::
+::::
+
+:::: {.columns}
+::: {.column width="25%"}
+**16.00 to 17.00**
 :::
 ::: {.column width="75%"}
 - Wrap-up and Q&A
 :::
 ::::
-
-
-
 
 
 --- 
@@ -218,7 +261,7 @@
 #| eval: false
 
 install.packages("usethis")
-usethis::create_from_github("https://github.com/KennethKoslowski/mlts_workshop_SAA2026")
+usethis::create_from_github("https://github.com/KennethKoslowski/mlts_workshop_EAM_2026")
 ```
 
 * This should download the workshop directory and open the R project file directly
@@ -226,10 +269,10 @@ usethis::create_from_github("https://github.com/KennethKoslowski/mlts_workshop_S
 
 #### Or download the Github project as ZIP file:
 
-1. Open the link: [https://github.com/KennethKoslowski/mlts_workshop_SAA2026](https://github.com/KennethKoslowski/mlts_workshop_SAA2026)
+1. Open the link: [https://github.com/KennethKoslowski/mlts_workshop_EAM_2026](https://github.com/KennethKoslowski/mlts_workshop_EAM_2026)
 2. Click the green Code button, then Download ZIP
 3. Extract the ZIP file
-4. Open the `SAA_2026_html.Rproj` file by clicking it (it should open in a new R session)
+4. Open the `mlts_workshop_EAM_2026.Rproj` file by clicking it (it should open in a new R session)
 
 
 ---

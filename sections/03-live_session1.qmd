@@ -6,7 +6,7 @@ library(rstan)
 
 
 
-# Live Session I (30 min)
+# Live Session I (70 min)
 
 * **Session Aims**:
   * Get familiar with `mlts_model()` syntax

@@ -33,6 +33,7 @@ vignettes/*.pdf
 /cache/
 downloaded_data/
 _freeze/
+sections/figure/
 
 # Temporary files created by R markdown
 *.utf8.md

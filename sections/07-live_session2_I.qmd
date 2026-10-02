@@ -1,5 +1,5 @@
 
-# Live Session II (2 x 30 min)
+# Live Session II Part A (30 min)
 
 * Session aims:
   * Become familiar with some of the advanced modeling options 
@@ -33,7 +33,6 @@
 
 - Use only data of the intervention phase (`phase = "i"` ) and only of subject in the detached mindfulness condition (`group = "dm"`) 
 
-**To explore:**
 
 
 ### Solution

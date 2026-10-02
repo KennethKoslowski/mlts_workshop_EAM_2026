@@ -2,3 +2,26 @@
 # Simulating Data 
 
 ---
+
+## Simulating Data 
+
+:::{.large}
+
+- We can easily generate data for each model specified with `mlts_model()` using `mlts_sim()`
+- Originally designed to test new package implementations, but can also be used to:
+  - assess estimation times and estimation performance under specific sample size conditions 
+  - conduct simulation studies
+  - conduct power analyses 
+:::
+
+:::{.vspace}
+
+:::
+
+. . .
+
+:::{.large}
+Let's see it in action!  
+:::
+
+---

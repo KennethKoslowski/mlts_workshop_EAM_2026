@@ -1,0 +1,1067 @@
+
+# Model Extensions I
+
+```{r}
+dir.create("sections/06-model_extensions/")
+
+# load all fitted models
+for(i in Sys.glob("sections/06-model_extensions/*.Rdata")){
+  load(i)
+}
+```
+
+---
+
+### Vector Autoregressive Model
+
+- Allows estimation of time-lagged effects between multiple variables
+  - Autoregressive and cross-lagged (CL) effects
+- In multivariate models, the number of random effects can quickly increase
+  - Estimation times can quickly increase, especially for large *N*
+  - Yielding acceptable model convergence criteria can be much challenging
+  
+- We will illustrate this for the positive and negative affect composite scores
+
+---
+
+:::: {.columns}
+
+::: {.column width="35%"}
+
+#### Decomposition
+
+Applied to each variable:
+$$
+\begin{matrix}
+Y_{1it}^{w} &= Y_{1it} - \mu_{1i} \\
+Y_{2it}^{w} &= Y_{2it} - \mu_{2i} \\
+\end{matrix}
+$$ 
+
+#### Within-level
+$$
+\begin{matrix}
+Y_{1it}^w &= \phi_{11i} Y_{1i(t-1)}^{w} + \phi_{12i} Y_{2i(t-1)}^{w} + \zeta_{1it} \\
+Y_{2it}^w &= \phi_{21i} Y_{1i(t-1)}^{w} + \phi_{22i} Y_{2i(t-1)}^{w} + \zeta_{2it} \\
+\end{matrix}
+$$
+
+$$
+\begin{matrix}
+\text{with}\ \zeta_{1it} \sim N(0, \sigma_{\zeta 1i}^2) \\
+\text{with}\ \zeta_{2it} \sim N(0, \sigma_{\zeta 2i}^2)
+\end{matrix}
+$$ 
+
+#### Between-level
+$$
+\begin{matrix}
+\mu_{1i}  = \gamma_{\mu1}  + \upsilon_{\mu1i} \\
+\mu_{2i}  = \gamma_{\mu1}  + \upsilon_{\mu1i} \\
+\phi_{11i} = \gamma_{\phi11} + \upsilon_{\phi 11i} \\
+\phi_{12i} = \gamma_{\phi12} + \upsilon_{\phi 12i} \\
+[...] \\
+ln(\sigma_{\zeta 2i}^2) = \gamma_{ln(\sigma^2_{\zeta2})} + \upsilon_{ln(\sigma^2_{\zeta 2i})}
+\end{matrix}
+$$ 
+
+$$
+\text{with}\ \mathbf{\upsilon} \sim MVN(\mathbf{0},\mathbf{\Sigma})
+$$ 
+
+:::
+
+::: {.column width="5%"}
+<!-- Add some space between columns -->
+:::
+
+::: {.column width="60%"}
+
+#### Model Specification
+
+```{r, echo = T}
+model = mlts_model(
+  q = 2,                 # number of time-varying constructs
+  inno_covs_zero = TRUE  # assume independent innovations (r = 0)
+  )
+```
+
+
+```r
+mlts_paths(model)
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 3.5
+#| fig-dpi: 1000
+#| fig-align: left
+
+mlts_paths(model, height = 3.5, width = 6, cex_b = 0.8, scale_within_inno = 0.22,
+           cex_title = 0.8, scale_between = 0.32, asp_w_b = 0.4)
+```
+
+:::
+::::
+
+--- 
+
+### Fixed Effect Parameters in the `model`-object
+```{r}
+#| echo: true
+model[1:8,c("Type","Param","Param_Label")]
+```
+
+- `phi(1)_11` and `phi(1)_22` are the AR effects of variable 1 and 2
+- `phi(1)_21` and `phi(1)_12` are the first-order CL effect between variables 1 and 2. The first number indicates the DV (outcome) and the second number the IV (predictor) 
+
+- The order of the variables (1 or 2) will be determined by the order in which the variable names are passed to the `ts`-argument in `mlts_fit()`. 
+
+--- 
+
+## Model Estimation | A Detailled Workflow
+
+::: {.column width="55%"}
+
+- For ESM datasets of moderate sample size (N ~ 100 & T ~ 70), estimating VAR(1) models with random effects for all time-lagged effects and innovation variances can be difficult
+  - Insufficient model convergence indices & long estimation times 
+
+- Usually the result of model misfit 
+  - Known issue: Parameter estimates close to boundary values
+    - Low random effect variances
+    - Random effect correlations close to 1 (or -1)
+  - Preliminary estimation runs (with ~ 500-1000 iterations) can help to diagnose model misfit at an early stage 
+
+:::
+
+. . .
+
+::: {.column width="5%"}
+
+:::
+
+::: {.column width="40%"}
+```{r}
+#| eval: false
+#| echo: true
+model = mlts_model(q = 2, inno_covs_zero = T)
+
+fit_VAR = mlts_fit(
+  model = model,
+  data = bolzen,
+  id = "id",
+  ts = c("posaff", "negaff"),
+  seed = 1234,
+  iter = 500)
+```
+:::
+
+---
+
+### Preliminary Run | Results
+
+:::: {.columns}
+
+::: {.column width="45%"}
+
+```{r, eval = F}
+fit_VAR = mlts_fit(
+  model = model,
+  data = bolzen,
+  id = "id",
+  ts = c("posaff", "negaff"),
+  seed = 1234)
+
+save(fit_VAR, file = "06-model_extensions/1.1_VAR_500.Rdata")
+
+fit_VAR_l = mlts_fit(
+  model = model,
+  data = bolzen,
+  id = "id",
+  ts = c("posaff", "negaff"),
+  iter = 2000,
+  seed = 1234)
+
+save(fit_VAR_l, file = "06-model_extensions/1.1_VAR_2000.Rdata")
+
+```
+
+```{r}
+load("sections/06-model_extensions/1.1_VAR_500.Rdata")
+load("sections/06-model_extensions/1.1_VAR_2000.Rdata")
+```
+
+```{r}
+#| eval: false
+#| echo: true
+model = mlts_model(q = 2, inno_covs_zero = T)
+
+fit_VAR = mlts_fit(
+  model = model,
+  data = bolzen,
+  id = "id",
+  ts = c("posaff", "negaff"),
+  seed = 1234,
+  iter = 500)
+```
+
+```{r}
+summary_lines <- capture.output(summary(fit_VAR, digits = 2))
+cat(summary_lines[1:9], sep = "\n")  # e.g. first 10 
+cat("[...]")
+
+```
+
+:::
+
+::: {.column width="5%"}
+:::
+
+::: {.column width="50%"}
+
+```{r}
+cat(summary_lines[11:32], sep = "\n")  # e.g. first 10 
+```
+
+:::{.vspace}
+:::
+
+Check estimation time: Longest chain took 14.9 minutes
+
+
+:::
+::::
+
+---
+
+### Preliminary Run | Results for `iter = 2000`
+
+:::: {.columns}
+
+::: {.column width="45%"}
+
+```{r}
+#| eval: false
+#| echo: true
+model = mlts_model(q = 2, inno_covs_zero = T)
+
+fit_VAR_l = mlts_fit(
+  model = model,
+  data = bolzen,
+  id = "id",
+  ts = c("posaff", "negaff"),
+  seed = 1234,
+  iter = 2000)
+```
+
+```{r}
+summary_lines <- capture.output(summary(fit_VAR_l, digits = 2))
+cat(summary_lines[1:9], sep = "\n")  # e.g. first 10 
+cat("[...]")
+
+```
+
+:::
+
+::: {.column width="5%"}
+:::
+
+::: {.column width="50%"}
+
+```{r}
+cat(summary_lines[11:32], sep = "\n")  # e.g. first 10 
+```
+
+:::{.vspace}
+:::
+
+Check estimation time: Longest chain took 36.5 minutes
+
+:::
+::::
+
+--- 
+
+### Running Model With Constraints
+
+```{r, eval = F}
+model_r = mlts_model(q = 2, inno_covs_zero = T, 
+                     ranef_zero = "phi(1)_21")
+
+fit_VAR_r = mlts_fit(
+  model = model_r,
+  data = bolzen,
+  id = "id",
+  ts = c("posaff", "negaff"),
+  seed = 1234)
+
+save(fit_VAR_r, file = "06-model_extensions/1.1_VAR_r1_500.Rdata")
+
+fit_VAR_r_l = mlts_fit(
+  model = model_r,
+  data = bolzen,
+  id = "id",
+  ts = c("posaff", "negaff"),
+  seed = 1234,
+  iter = 2000)
+
+save(fit_VAR_r_l, file = "06-model_extensions/1.1_VAR_r1_2000.Rdata")
+
+model_r2 = mlts_model(q = 2, inno_covs_zero = T, 
+                     ranef_zero = c("phi(1)_21", "phi(1)_12"))
+
+fit_VAR_r2 = mlts_fit(
+  model = model_r2,
+  data = bolzen,
+  id = "id",
+  ts = c("posaff", "negaff"),
+  seed = 1234)
+
+save(fit_VAR_r2, file = "06-model_extensions/1.1_VAR_r2_500.Rdata")
+
+fit_VAR_r2_l = mlts_fit(
+  model = model_r2,
+  data = bolzen,
+  id = "id",
+  ts = c("posaff", "negaff"),
+  seed = 1234,
+  iter = 2000)
+
+save(fit_VAR_r2_l, file = "06-model_extensions/1.1_VAR_r2_2000.Rdata")
+```
+
+
+::: {.column width="25%"}
+
+:::
+
+::: {.column width="7%"}
+**iter**
+:::
+
+::: {.column width="7%"}
+**Time**
+:::
+
+::: {.column width="20%"}
+**Diagnostics**
+:::
+
+::: {.column width="41%"}
+**Crit. Parameters**
+:::
+
+
+```r
+mlts_model(q = 2, inno_covs_zero = T)
+```
+
+::: {.column width="25%"}
+
+:::
+
+::: {.column width="7%"}
+500
+:::
+
+::: {.column width="7%"}
+```{r}
+cat(round(max(chain_sec = apply(rstan::get_elapsed_time(fit_VAR$stanfit),1,sum))/60,2))
+```
+:::
+
+::: {.column width="20%"}
+```{r}
+diag_fun <- function(fit){
+  max.rhat = round(max(fit$pop.pars.summary$Rhat),3)
+  min.ess_bulk = min(fit$pop.pars.summary$Bulk_ESS)
+  min.ess_tail = min(fit$pop.pars.summary$Tail_ESS)
+  n_div  = rstan::get_num_divergent(fit$stanfit)
+  cat(paste0(
+    "Max Rhat     = ", max.rhat, "\n",
+ #   "Min Tail ESS = ", min.ess_tail, "\n",
+#    "Min Bulk ESS = ", min.ess_bulk, "\n",
+    "N divergent  = ", n_div
+  ))
+}
+diag_fun(fit_VAR)
+```
+:::
+
+::: {.column width="41%"}
+```{r}
+fun_crit <- function(fit){
+  cols = c("Param", "Rhat","Bulk_ESS", "Tail_ESS")
+  a = which(fit$pop.pars.summary$Tail_ESS == min(fit$pop.pars.summary$Tail_ESS))
+  b = which(fit$pop.pars.summary$Bulk_ESS == min(fit$pop.pars.summary$Bulk_ESS))
+  c = which(fit$pop.pars.summary$Rhat == max(fit$pop.pars.summary$Rhat))
+  fit$pop.pars.summary[unique(c(a,b,c)), cols]  
+}
+
+fun_crit(fit_VAR)
+```
+:::
+
+<!-- new row -->
+
+::: {.column width="25%"}
+
+:::
+
+::: {.column width="7%"}
+2000
+:::
+
+::: {.column width="7%"}
+```{r}
+cat(round(max(chain_sec = apply(rstan::get_elapsed_time(fit_VAR_l$stanfit),1,sum))/60,2))
+```
+:::
+
+::: {.column width="20%"}
+```{r}
+diag_fun(fit_VAR_l)
+```
+:::
+
+::: {.column width="41%"}
+```{r}
+fun_crit(fit_VAR_l)
+```
+:::
+
+<!-- new row -->
+
+:::{.vspace}
+:::
+
+```r
+mlts_model(q = 2, inno_covs_zero = T, ranef_zero = "phi(1)_21")
+```
+
+
+::: {.column width="25%"}
+
+:::
+
+::: {.column width="7%"}
+500
+:::
+
+::: {.column width="7%"}
+```{r}
+cat(round(max(chain_sec = apply(rstan::get_elapsed_time(fit_VAR_r$stanfit),1,sum))/60,2))
+```
+:::
+
+::: {.column width="20%"}
+```{r}
+diag_fun(fit_VAR_r)
+```
+:::
+
+::: {.column width="41%"}
+```{r}
+fun_crit(fit_VAR_r)
+```
+:::
+
+<!-- new row -->
+
+::: {.column width="25%"}
+
+:::
+
+::: {.column width="7%"}
+2000
+:::
+
+::: {.column width="7%"}
+```{r}
+cat(round(max(chain_sec = apply(rstan::get_elapsed_time(fit_VAR_r_l$stanfit),1,sum))/60,2))
+```
+:::
+
+::: {.column width="20%"}
+```{r}
+diag_fun(fit_VAR_r_l)
+```
+:::
+
+::: {.column width="41%"}
+```{r}
+fun_crit(fit_VAR_r_l)
+```
+:::
+
+<!-- new row -->
+
+
+:::{.vspace}
+:::
+
+```r
+mlts_model(q = 2, inno_covs_zero = T, ranef_zero = c("phi(1)_21","phi(1)_12"))
+```
+
+
+::: {.column width="25%"}
+
+:::
+
+::: {.column width="7%"}
+500
+:::
+
+::: {.column width="7%"}
+```{r}
+cat(round(max(chain_sec = apply(rstan::get_elapsed_time(fit_VAR_r2$stanfit),1,sum))/60,2))
+```
+:::
+
+::: {.column width="20%"}
+```{r}
+diag_fun(fit_VAR_r2)
+```
+:::
+
+::: {.column width="41%"}
+```{r}
+fun_crit(fit_VAR_r2)
+```
+:::
+
+<!-- new row -->
+
+::: {.column width="25%"}
+
+:::
+
+::: {.column width="7%"}
+2000
+:::
+
+::: {.column width="7%"}
+```{r}
+cat(round(max(chain_sec = apply(rstan::get_elapsed_time(fit_VAR_r2_l$stanfit),1,sum))/60,2))
+```
+:::
+
+::: {.column width="20%"}
+```{r}
+diag_fun(fit_VAR_r2_l)
+```
+:::
+
+::: {.column width="41%"}
+```{r}
+fun_crit(fit_VAR_r2_l)
+```
+:::
+
+---
+
+### Take-Away
+
+- Estimation times can quickly increase, especially when the model does not fit the data
+  - here: random effect variances of the CL effects 
+- Preliminary test runs with less iterations can usually detect misfit early on 
+  - Strong recommended especially for complex models 
+- When the model fits the data, running more iterations is usually less costly 
+
+
+---
+
+### Take-Away
+
+- Estimation times can quickly increase, especially when the model does not fit the data
+  - here: random effect variances of the CL effects 
+- Preliminary test runs with less iterations can usually detect misfit early on 
+  - Strong recommended especially for complex models 
+- When the model fits the data, running more iterations is usually less costly 
+
+
+:::{.vspace}
+:::
+
+:::{.large}
+**Are we Done here?**
+:::
+
+
+---
+
+### Are we Done here?
+
+- Let's recap, why did the unrestricted VAR(1) model fail?
+- Any suggestions what might change the results?
+
+```{r}
+summary_lines <- capture.output(summary(fit_VAR_r2_l, digits = 2))
+cat("[...]")
+cat(summary_lines[11:21], sep = "\n")  # e.g. first 10 
+cat("[...]")
+```
+
+---
+
+### Refitting the Model with `tinterval`
+
+```{r, eval = F}
+fit_VAR_tint = mlts_fit(
+  model = model,
+  data = bolzen_grid,
+  time = "int_time_spaced",
+  tinterval = 1,
+  max_NA_seq = 4,
+  id = "id",
+  ts = c("posaff", "negaff"),
+  seed = 1234)
+
+save(fit_VAR_tint, file = "06-model_extensions/1.1_VAR_tint_500.Rdata")
+
+fit_VAR_tint_l = mlts_fit(
+  model = model,
+  data = bolzen_grid,
+  time = "int_time_spaced",
+  tinterval = 1,
+  max_NA_seq = 4,
+  id = "id",
+  ts = c("posaff", "negaff"),
+  seed = 1234,
+  iter = 2000)
+
+save(fit_VAR_tint_l, file = "06-model_extensions/1.1_VAR_tint_2000.Rdata")
+
+
+fit_VAR_tint_r = mlts_fit(
+  model = model_r,
+  data = bolzen_grid,
+  time = "int_time_spaced",
+  tinterval = 1,
+  max_NA_seq = 4,
+  id = "id",
+  ts = c("posaff", "negaff"),
+  seed = 1234)
+
+save(fit_VAR_tint_r, file = "06-model_extensions/1.1_VAR_tint_r_500.Rdata")
+
+fit_VAR_tint_r_l = mlts_fit(
+  model = model_r,
+  data = bolzen_grid,
+  time = "int_time_spaced",
+  tinterval = 1,
+  max_NA_seq = 4,
+  id = "id",
+  ts = c("posaff", "negaff"),
+  seed = 1234,
+  iter = 2000)
+
+save(fit_VAR_tint_r_l, file = "06-model_extensions/1.1_VAR_tint_r_2000.Rdata")
+
+```
+
+:::: {.columns}
+
+::: {.column width="45%"}
+
+```{r}
+#| eval: false
+#| echo: true
+#| code-line-numbers: 8-10
+model = mlts_model(q = 2, inno_covs_zero = T)
+
+fit_VAR_tint_l = mlts_fit(
+  model = model,
+  data = bolzen_grid,
+  id = "id",
+  ts = c("posaff", "negaff"),
+  tinterval = 1,
+  time = "int_time_spaced",
+  max_NA_seq = 4,
+  seed = 1234,
+  iter = 2000)
+```
+
+```{r}
+summary_lines <- capture.output(summary(fit_VAR_tint_l, digits = 2))
+cat(summary_lines[1:9], sep = "\n")  # e.g. first 10 
+cat("[...]")
+
+```
+
+:::
+
+::: {.column width="5%"}
+:::
+
+::: {.column width="50%"}
+
+```{r}
+cat(summary_lines[11:32], sep = "\n")  # e.g. first 10 
+```
+
+:::{.vspace}
+:::
+
+Check estimation time:
+```{r, eval = F}
+cat(round(max(chain_sec = apply(rstan::get_elapsed_time(fit_VAR_tint_l$stanfit),1,sum))/60,2))
+```
+Longest chain took 16.1 minutes
+
+
+:::
+::::
+
+---
+
+### Refitting the Model with `tinterval` II
+
+:::: {.columns}
+
+::: {.column width="45%"}
+
+```{r}
+#| eval: false
+#| echo: true
+#| code-line-numbers: 1-13|2
+model_r = mlts_model(q = 2, inno_covs_zero = T, 
+                     ranef_zero = "phi(1)_21")
+
+fit_VAR_tint_r_l = mlts_fit(
+  model = model_r,
+  data = bolzen_grid,
+  id = "id",
+  ts = c("posaff", "negaff"),
+  tinterval = 1,
+  time = "int_time_spaced",
+  max_NA_seq = 4,
+  seed = 1234,
+  iter = 2000)
+```
+
+```{r}
+summary_lines <- capture.output(summary(fit_VAR_tint_r_l, digits = 2))
+cat(summary_lines[1:9], sep = "\n")  # e.g. first 10 
+cat("[...]")
+
+```
+
+:::
+
+::: {.column width="5%"}
+:::
+
+::: {.column width="50%"}
+
+```{r}
+cat(summary_lines[11:32], sep = "\n")  # e.g. first 10 
+```
+
+:::{.vspace}
+:::
+
+Check estimation time:
+```{r, eval = F}
+cat(round(max(chain_sec = apply(rstan::get_elapsed_time(fit_VAR_tint_r_l$stanfit),1,sum))/60,2))
+```
+Longest chain took 15.1 minutes
+
+
+:::
+::::
+
+
+
+---
+
+
+
+### Innovation Covariance - Three modeling options
+
+:::: {.columns}
+
+::: {.column width="30%"}
+
+1. Independent: 
+```{r}
+#| code-line-numbers: 3-3
+#| eval: false
+#| echo: true
+mlts_model(
+  q = 2,
+  inno_covs_zero = TRUE
+  )
+```
+
+
+:::
+
+::: {.column width="5%"}
+:::
+
+::: {.column width="30%"}
+
+2. Constant innovation correlation 
+```{r}
+#| code-line-numbers: 3-4
+#| eval: false
+#| echo: true
+mlts_model(
+  q = 2,
+  inno_covs_zero = FALSE,  # default
+  fix_inno_covs = TRUE     # default
+  )
+```
+
+:::
+
+::: {.column width="5%"}
+
+:::
+
+::: {.column width="30%"}
+
+3. Random Innovation covariance 
+```{r}
+#| code-line-numbers: 3-5
+#| eval: false
+#| echo: true
+mlts_model(
+  q = 2,
+  inno_covs_zero = FALSE,
+  fix_inno_covs = FALSE,
+  inno_covs_dir = "pos" # or "neg"
+  )
+```
+
+:::
+::::
+
+:::: {.columns}
+
+::: {.column width="30%"}
+Implies:
+
+$$
+\begin{bmatrix}
+\zeta_{1it} \\
+\zeta_{2it} 
+\end{bmatrix} 
+\sim MVN 
+\left(
+\begin{bmatrix}
+0 \\ 0
+\end{bmatrix},
+\begin{bmatrix}
+\sigma_{\zeta 1i}^2 & 0 \\ 
+0 & \sigma_{\zeta 2i}^2
+\end{bmatrix}
+\right)
+$$ 
+:::
+
+::: {.column width="5%"}
+
+:::
+
+::: {.column width="30%"}
+Implies:
+
+$$
+\begin{bmatrix}
+\zeta_{1it} \\
+\zeta_{2it} 
+\end{bmatrix} 
+\sim MVN 
+\left(
+\begin{bmatrix}
+0 \\ 0
+\end{bmatrix},
+\begin{bmatrix}
+\sigma_{\zeta 1i}^2 & 0 \\ 
+\sigma_{\zeta 12i}^2 & \sigma_{\zeta 2i}^2
+\end{bmatrix}
+\right)
+$$ 
+where
+$$
+\sigma_{\zeta 12i}^2 = \rho_{\zeta12} * \sigma_{\zeta 1i} * \sigma_{\zeta 2i}
+$$
+$\rho_{\zeta12}$ without index $i$ --> constant across clusters
+
+:::
+
+::: {.column width="5%"}
+
+:::
+
+::: {.column width="30%"}
+Implies:
+$$
+\begin{matrix}
+\zeta_{1it} = 1 * \eta_{\zeta,it} + \delta_{1it} \\
+\zeta_{2it} = 1 * \eta_{\zeta,it} + \delta_{2it} \\
+\end{matrix} 
+$$
+
+$$
+\begin{matrix}
+\delta_{1it} \sim N(0, \sigma_{\delta 1i}^2)\\
+\delta_{2it} \sim N(0, \sigma_{\delta 2i}^2)\\
+\eta_{\zeta,it} \sim N(0, \sigma_{\eta \zeta i}^2)
+\end{matrix} 
+$$ 
+
+:::
+::::
+
+---
+
+
+### Between-level Covariates  
+
+Person-level variables as predictor of individual differences in any of the dynamic model parameters:  
+
+:::: {.columns}
+
+::: {.column width="35%"}
+
+#### Decomposition
+
+- Latent Person-mean-centering:
+
+$$
+Y_{it}^{w} = Y_{it} - \mu_{i}
+$$ 
+
+#### Within-level
+$$
+Y_{it}^w = \phi_i Y_{i(t-1)}^{w} + \zeta_{it} \\
+\text{with}\ \zeta_{it} \sim N(0, \sigma_{\zeta i}^2)
+$$ 
+
+
+#### Between-level
+$$
+\begin{matrix}
+\mu_i  &=& \gamma_{\mu}  &+& b_{\mu}Group_i  &+& \upsilon_{\mu i} \\
+\phi_i &=& \gamma_{\phi} &+& b_{\phi}Group_i  &+& \upsilon_{\phi i} \\
+ln(\sigma_{\zeta i}^2) &=& \gamma_{ln(\sigma^2_\zeta)} &+& b_{ln(\sigma_\zeta^2)}Group_i  &+& \upsilon_{ln(\sigma^2_{\zeta i})}
+\end{matrix}
+$$ 
+
+$$
+\text{with}\ \mathbf{\upsilon} \sim MVN(\mathbf{0},\mathbf{\Sigma})
+$$ 
+
+:::
+
+::: {.column width="10%"}
+<!-- Add some space between columns -->
+:::
+
+::: {.column width="55%"}
+
+#### Model Specification
+```{r}
+#| echo: true
+model <- mlts_model(
+  q = 1, 
+  ranef_pred = "group_bi"  # name of the variable in the dataset
+  )
+```
+
+We use the dummy-coded treatment condition variable (i.e., `group_bi`).
+
+```r
+mlts_paths(model)
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 3
+#| fig-dpi: 1000
+#| fig-align: left
+
+
+mlts_paths(model, height = 3.5, width = 6, cex_b = 0.7, 
+           scale_between = 0.25,
+           asp_w_b = 0.6,
+           scale_within_inno = 0.3,
+           cex_title = 0.8)
+```
+
+:::
+::::
+
+---
+
+### Important
+
+  - By default between-level covariates will be grand-mean centered to allow a clearer interpretation of the dynamic model parameters 
+  - For binary predictor variables, you can turn off this behavior by setting ` mlts_fit(..., center_covs = FALSE)`
+
+---
+
+### Prediction of Time-Stable Outcomes
+
+Person-level variables as outcomes to be predicted by person-specific parameters: 
+
+:::: {.columns}
+
+::: {.column width="55%"}
+
+#### Model Specification
+```{r}
+#| echo: true
+model <- mlts_model(
+  q = 1, 
+  out_pred = "Out" # name of the variable in the dataset
+  )
+```
+
+```r
+mlts_paths(model)
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 3.5
+#| fig-dpi: 1000
+#| fig-align: left
+
+
+mlts_paths(model, height = 3.5, width = 6, cex_b = 0.7, 
+           scale_between = 0.2,
+           asp_w_b = 0.6,
+           scale_within_inno = 0.3,
+           cex_title = 0.8)
+```
+:::
+
+::: {.column width="10%"}
+<!-- Add some space between columns -->
+:::
+
+::: {.column width="35%"}
+**Further options**
+
+- For multiple outcomes: 
+  - `out_pred = c("Out1", "Out2")`
+- Specific paths: 
+  - `list(c("Out" = "mu_1"))`
+  - Uses only individual mean levels (`mu_1`) as predictor
+- Include observed binary or continuous person-level variables: 
+  - `out_pred_add_btw = "Z"`, or:
+  - `list(c("Out" = "mu_1", "Z"))`
+  - where `"Z"` refers to a variable in the dataset
+
+
+:::
+
+::::
+
+---
+

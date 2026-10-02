@@ -8,15 +8,13 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 
-# Run 'bolzen_prepare.R' to download and preprocess the data 
-source("live_session/bolzen_prepare.R")
-## should load two objects into the environment:
-### 'bolzen'       
-### 'bolzen_grid' 
-
+# Assuming you did run 'bolzen_prepare.R' to download and preprocess the data 
+load("downloaded_data/bolzen.rda")
+load("downloaded_data/bolzen_grid.rda")
 
 # preparate a folder to store results 
 dir.create(path = "live_session/live_session2_fits/")
+
 
 
 # 1. Bivariate VAR(1) model ====================================================

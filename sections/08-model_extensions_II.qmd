@@ -1,0 +1,809 @@
+
+# Model Extensions II
+
+```{r}
+dir.create("sections/06-model_extensions/")
+
+# load all fitted models
+for(i in Sys.glob("sections/06-model_extensions/*.Rdata")){
+  load(i)
+}
+```
+
+---
+
+### Multiple-Group Models
+
+:::{.large}
+
+- Simultaneous estimation of the *same dynamic model* *separately for a specified number of groups* 
+
+- As shown before, differences in model parameters can be estimated by adding the group-variable as predictor of individual-specific effects. 
+  - **But**: only possible for random effects.
+
+- Multiple-group models: Allow estimation of group-specific model parameters 
+  - Differences in average (i.e. fixed) effects, random effect variance, random effect correlation, 
+  innovation correlations
+
+- Possible scenarios where this is relevant:
+  - Relatively low number of measurements which would require estimating some model parameters as constant but group-specific differences therein are of interest
+
+:::  
+
+---
+
+### Multiple-Group Models
+
+::: {.column width="50%"}
+#### Model Specification 
+```{r}
+#| echo: true
+VAR1_g <- mlts_model(
+  q = 2,
+  group = 2,  
+  fix_dynamics = TRUE,
+  fix_inno_vars = TRUE,
+  )
+```
+
+#### Model Estimation
+```{r}
+#| echo: true
+#| eval: false
+fit <- mlts_fit(
+  model = VAR1_g,
+  data = bolzen %>% filter(phase == "i"),
+  id = "id",
+  ts = c("negaff","posaff"),
+  group = "group",
+  iter = 2000
+)
+```
+```{r}
+#save(fit, file = "06-model_extensions/4.1_MG.Rdata")
+load("sections/06-model_extensions/4.1_MG.Rdata")
+```
+:::
+
+::: {.column width="50%"}
+#### Results
+```{r}
+summary_lines <- capture.output(summary(fit, digits = 2))
+cat(summary_lines[1:13], sep = "\n")  
+```
+:::
+
+---
+
+### Multiple-Group Models
+
+#### Results
+::: {.column width="50%"}
+
+```{r}
+cat(summary_lines[14:35], sep = "\n")  
+```
+
+:::
+
+::: {.column width="50%"}
+```{r}
+cat(summary_lines[37:58], sep = "\n")  
+```
+:::
+
+
+---
+
+### Multiple-Group Models
+
+#### Group-Comparisons
+
+- Based on the group-specific estimates, we can run comparison tests
+- The procedure to conduct these tests is the same for any model parameter (also random effect variances or random effect correlations)
+- For example, are there group-differences in the average CL effect of `poasaff` at $t-1$ on `negaff` at $t$ (i.e., `phi(1)_12`).
+
+- We first extract the posterior draws of the group-specific estimates:
+```{r}
+#|echo: true
+CL_dm = fit$posteriors[,,"dm: phi(1)_12"]
+CL_gi = fit$posteriors[,,"gi: phi(1)_12"]
+```
+
+- Then, calculate the differences between the group-specific estimates for each draw:
+```{r}
+#|echo: true
+Diff = as.vector( CL_dm - CL_gi )
+```
+
+- Now, we can calculate summary statistics: 
+  - such as the difference parameters' posterior mean, 
+```{r}
+#|echo: true
+mean(Diff)
+```
+  - or a 95% CI to test potential differences with $\alpha = .05$:
+```{r}
+#|echo: true
+quantile(Diff, probs = c(0.025, 0.975))
+```
+
+---
+
+### Interaction Effects on the Dynamic Within-Level
+
+
+- Thus far, we assumed *AR*- or *CL*-effects to be invariant over time
+
+- This assumption can be relaxed or tested, e.g., using **time-varying effects models** [@Bringmann2017]
+  - gradual changes in intercepts, or time-lagged effects over time can be  
+
+- Conceptually different: **Moderated VAR models** [@Holtmann2025] as a multilevel extension of single-subject fixed moderated time series analysis [@Adolf2017]
+  
+  - Moderation effects on the dynamic within-level where the moderator is known 
+  - Inclusion of time-varying variables as moderators of dynamic regression effects (i.e., *AR* and *CL*)
+
+**Possible research questions**
+
+- Does engaging in emotion regulation strategies (e.g., rumination) at time $t-1$ impact the carry-over of negative affect at $t-1$ to the subsequent time point (i.e., moderated *AR*)? 
+
+
+---
+
+### A Simple Example
+
+**Do positive affect dynamics change from the baseline to the intervention phase?** 
+
+:::{.vspace}
+:::
+
+:::: {.columns}
+
+::: {.column width="45%"}
+
+- For simplicity, we assume a time-varying binary indicator variable for the study phases (i.e. `phase_bi`)
+
+- We want `phase_bi` to be treated as an exogenous variable:
+  (1) it only serves as predictor
+  (2) without latent-mean centering 
+
+
+:::
+
+::: {.column width="5%"}
+:::
+
+::: {.column width="50%"}
+
+#### Decomposition
+
+- Latent Person-mean-centering only for positive affect ($PA$)
+
+$$
+PA_{it}^{w} = PA_{it} - \mu_{PA}
+$$ 
+
+#### Within-level
+$$
+PA_{it}^w = \phi_{21i} Phase_{it} + \phi_{22i} PA_{i(t-1)}^{w} + \phi_{2.21i} PA_{i(t-1)}^{w}*Phase_{it} + \zeta_{it} \\
+$$
+
+Implies:
+$$
+\begin{matrix}
+\widehat{PA_{it}^w} &=& \phi_{22i} PA_{i(t-1)}^{w}  & \text{if}\ Phase_{it} = 0 \\
+\widehat{PA_{it}^w} &=& \phi_{21i} + (\phi_{22i}+\phi_{2.21i})PA_{i(t-1)}^{w} & \text{if}\ Phase_{it} = 1\\
+\end{matrix}
+$$
+
+$$
+\text{with}\ \zeta_{it} \sim N(0, \sigma_{\zeta i}^2)
+$$ 
+
+
+:::
+
+::::
+
+--- 
+
+### We build the model in a step-wise manner
+
+::: {.column width="35%"}
+
+#### Model Specification
+```{r}
+#| echo: true
+model <- mlts_model(
+  # two constructs: 1 = phase_bi, 2 = posaff
+  q = 2
+  )
+```
+
+:::
+
+::: {.column width="5%"}
+<!-- Add some space between columns -->
+:::
+
+::: {.column width="60%"}
+
+```{r}
+#| fig-width: 6
+#| fig-height: 3.5
+#| fig-dpi: 1000
+#| fig-align: left
+
+mlts_paths(model, height = 3.5, width = 6, cex_b = 0.7, 
+           scale_between = 0.35,
+           scale_within = 0.29,
+           cex_w = 0.8,
+           asp_w_b = 0.4,
+           scale_within_inno = 0.3,
+           cex_title = 0.8,
+           w_y_offset = c(0.25, -0.25), 
+           y_ind_labs = c("SP","PA"),
+           y_fac_labs = c("SP", "PA"),
+           remove_lag_lab = T
+           )
+```
+
+:::
+
+
+--- 
+
+### We build the model in a step-wise manner
+
+::: {.column width="35%"}
+
+#### Model Specification
+```{r}
+#| echo: true
+model <- mlts_model(
+  # two constructs: 1 = phase_bi, 2 = posaff
+  q = 2,                          
+  # treat first construct as exogenous:
+  is_exogenous = 1
+  )
+```
+
+:::
+
+::: {.column width="5%"}
+<!-- Add some space between columns -->
+:::
+
+::: {.column width="60%"}
+
+```{r}
+#| fig-width: 6
+#| fig-height: 3.5
+#| fig-dpi: 1000
+#| fig-align: left
+
+mlts_paths(model, height = 3.5, width = 6, cex_b = 0.7, 
+           scale_between = 0.35,
+           scale_within = 0.29,
+           cex_w = 0.8,
+           asp_w_b = 0.4,
+           scale_within_inno = 0.3,
+           cex_title = 0.8,
+           w_y_offset = c(0.25, -0.25), 
+           y_ind_labs = c("SP","PA"),
+           y_fac_labs = c("SP", "PA"),
+           remove_lag_lab = T
+           )
+```
+
+:::
+
+--- 
+
+### We build the model in a step-wise manner
+
+
+::: {.column width="35%"}
+
+#### Model Specification
+```{r}
+#| echo: true
+model <- mlts_model(
+  q = 2,                          
+  is_exogenous = 1,               
+  
+  # PA (t) regressed on phase_bi (t):
+  incl_t0_effects = "phi(0)_21",  
+
+  # additional constraints: 
+  ## remove default first-order CL effect
+  fixef_zero = "phi(1)_21",       
+  ## for technical reasons, set
+  inno_covs_zero = TRUE           
+  )
+```
+
+:::
+
+::: {.column width="5%"}
+<!-- Add some space between columns -->
+:::
+
+::: {.column width="60%"}
+
+```{r}
+#| fig-width: 6
+#| fig-height: 3.5
+#| fig-dpi: 1000
+#| fig-align: left
+
+mlts_paths(model, height = 3.5, width = 6, cex_b = 0.7, 
+           scale_between = 0.35,
+           scale_within = 0.29,
+           cex_w = 0.8,
+           asp_w_b = 0.4,
+           scale_within_inno = 0.3,
+           cex_title = 0.8,
+           w_y_offset = c(0.25, -0.25), 
+           y_ind_labs = c("SP","PA"),
+           y_fac_labs = c("SP", "PA"),
+           remove_lag_lab = T
+           )
+```
+
+:::
+
+--- 
+
+### We build the model in a step-wise manner
+
+::: {.column width="35%"}
+
+#### Model Specification
+```{r}
+#| echo: true
+model <- mlts_model(
+  q = 2,                          
+  is_exogenous = 1,               
+  incl_t0_effects = "phi(0)_21",  
+  fixef_zero = "phi(1)_21",       
+  inno_covs_zero = TRUE,            
+  
+  # include interaction effect:
+  incl_interaction_effects = "phi(i)_2.2(1)1(0)" 
+  )
+```
+
+
+#### Breakdown of `phi(i)_2.2(1)1(0)`
+
+$$
+\begin{array}{lll}
+\text{phi(i)_} &\longrightarrow& \text{interaction effect} \\
+\text{2.}      &\longrightarrow& \text{DV (PA)} \\
+2(1)           &\longrightarrow& \text{IV I (PA) at lag 1} \\ 
+1(0)           &\longrightarrow& \text{IV II (SP) at lag 0} \\
+\end{array}
+$$
+
+:::
+
+::: {.column width="5%"}
+<!-- Add some space between columns -->
+:::
+
+::: {.column width="60%"}
+
+```{r}
+#| fig-width: 6
+#| fig-height: 3.5
+#| fig-dpi: 1000
+#| fig-align: left
+
+mlts_paths(model, height = 3.5, width = 6, cex_b = 0.7, 
+           scale_between = 0.35,
+           scale_within = 0.29,
+           cex_w = 0.8,
+           asp_w_b = 0.4,
+           scale_within_inno = 0.3,
+           cex_title = 0.8,
+           w_y_offset = c(0.25, -0.25), 
+           y_ind_labs = c("SP","PA"),
+           y_fac_labs = c("SP", "PA"),
+           remove_lag_lab = T
+           )
+```
+
+:::
+
+---
+
+### Multiple-Indicator Factor Models
+
+- DSEM model are oftentimes run for aggregate scores 
+  - Composite across multiple ESM items 
+  - For example, *happy*, *relaxed*, and *cheerful* as indicators of positive affect
+  - Measurement error in observed variables is not accounted for
+
+- Consequences of disregarding measurement error
+  - For time series variables, detrimental effects on the reliability of (individual) lagged effect estimates [e.g., @duReliabilitiesIntraindividualVariability2018]   
+  - Underestimated AR effects in AR models [e.g., @schuurmanIncorporatingMeasurementError2015]
+  - Potentially distorted estimates of CL relations in VAR models [e.g., @schuurmanMeasurementErrorPersonspecific2019]
+  - Low reliability of person-specific estimates can impact their use as predictors 
+
+- Solution:  
+  - including a measurement model (both at the between- and/or the within-level) and
+  - modeling the within-person dynamics for the underlying latent factors
+  - requires that multiple parallel indicators of the same construct are available
+
+---
+
+### Multiple-Indicator Factor Models
+
+
+:::: {.columns}
+
+::: {.column width="35%"}
+
+#### Decomposition
+$$
+\begin{matrix}
+Y_{1.1it}^{w} &= Y_{1.1it} - \mu_{1.1i} \\
+[. . .] \\
+Y_{q.pit}^{w} &= Y_{q.pit} - \mu_{q.pi} \\
+\end{matrix}
+$$ 
+
+#### Within-level measurement model
+$$
+\begin{matrix}
+Y_{q.1it}^w &= \lambda_{q.p}^w \eta_{qit}^{w} + \varepsilon_{qit}^w \\
+\end{matrix} \\
+\text{with}\ \varepsilon_{qit}^w \sim N(0, \sigma_{\varepsilon_w,q.p}^2)
+$$
+For model identification: $\lambda_{q.1}^w = 1$.
+
+#### Dynamic model (here AR(1))
+$$
+\begin{matrix}
+\eta_{qit}^{w} &= \phi_{11i} \eta_{qi(t-1)}^{w} + \zeta_{qit} \\
+\end{matrix} \\
+\text{with}\ \zeta_{1it} \sim N(0, \sigma_{\zeta 1i}^2) \\
+$$
+
+:::
+
+::: {.column width="5%"}
+<!-- Add some space between columns -->
+:::
+
+::: {.column width="60%"}
+
+#### Model Specification
+
+```{r, echo = T}
+model = mlts_model(
+  q = 1,              # number of time-varying constructs
+  p = 3,              # number of manifest indicator
+  btw_factor = FALSE, # no common between-level factor 
+  )
+```
+
+
+```r
+mlts_paths(model)
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 3.5
+#| fig-dpi: 1000
+#| fig-align: left
+
+mlts_paths(model, height = 4, width = 6, cex_b = 0.8, 
+           asp_decomp = 0.4,
+           scale_within_inno = 0.22,
+           cex_title = 0.8, scale_between = 0.38, asp_w_b = 0.4)
+```
+:::
+::::
+
+
+---
+
+### Multiple-Indicator Factor Models
+
+:::: {.columns}
+
+::: {.column width="35%"}
+
+#### Decomposition
+$$
+\begin{matrix}
+Y_{1.1it}^{w} &= Y_{1.1it} - \mu_{1.1i} \\
+[. . .] \\
+Y_{q.pit}^{w} &= Y_{q.pit} - \mu_{q.pi} \\
+\end{matrix}
+$$ 
+
+
+#### Between-level (indicator-specific person means)
+$$
+\begin{matrix}
+\mu_{1.1i}  = \gamma_{\mu1.1}  + \upsilon_{\mu1.1i} \\
+[...] \\
+\mu_{q.pi}  = \gamma_{\mu q.p}  + \upsilon_{\mu q.pi} \\
+\phi_{11i} = \gamma_{\phi11} + \upsilon_{\phi 11i} \\
+ln(\sigma_{\zeta 2i}^2) = \gamma_{ln(\sigma^2_{\zeta2})} + \upsilon_{ln(\sigma^2_{\zeta 2i})}
+\end{matrix} \\
+\text{with}\ \mathbf{\upsilon} \sim MVN(\mathbf{0},\mathbf{\Sigma})
+$$ 
+:::
+
+::: {.column width="5%"}
+<!-- Add some space between columns -->
+:::
+
+::: {.column width="60%"}
+
+#### Model Specification
+
+```{r, echo = T}
+model = mlts_model(
+  q = 1,              # number of time-varying constructs
+  p = 3,              # number of manifest indicator
+  btw_factor = FALSE, # no common between-level factor 
+  )
+```
+
+
+```r
+mlts_paths(model)
+```
+
+```{r}
+#| fig-width: 6
+#| fig-height: 3.5
+#| fig-dpi: 1000
+#| fig-align: left
+
+mlts_paths(model, height = 4, width = 6, cex_b = 0.8, 
+           asp_decomp = 0.4,
+           scale_within_inno = 0.22,
+           cex_title = 0.8, scale_between = 0.38, asp_w_b = 0.4)
+```
+:::
+::::
+
+---
+
+### Extended modeling options
+
+::: {.column width="50%"}
+
+#### Common betwen-level factor 
+
+```{r}
+#| echo: true
+model = mlts_model(
+  q = 1, 
+  p = 3, 
+  btw_factor = TRUE)
+```
+
+```{r}
+#| fig-width: 5
+#| fig-height: 4
+mlts_paths(model = model, width = 5, height = 4, asp_decomp = 0.4, cex_b = 0.9)
+```
+
+:::
+
+  
+::: {.column width="50%"}
+
+#### Complex VAR(1) structure 
+
+```{r}
+#| echo: true
+model = mlts_model(
+  q = 2, 
+  p = c(3,4), 
+  btw_model = list(1:3, NA),
+  fix_dynamics = T,
+  fix_inno_vars = T)
+```
+
+```{r}
+#| fig-width: 7
+#| fig-height: 4
+mlts_paths(model = model, width = 5, height = 4, asp_decomp = 0.6,
+           cex_w = 0.7)
+```
+
+:::  
+  
+---  
+  
+### Extended modeling options 
+  
+::: {.column width="50%"}
+
+#### Assuming cross-level measurement invariance 
+
+```{r}
+#| echo: true
+model = mlts_model(
+  q = 1, 
+  p = 3, 
+  btw_factor = TRUE, 
+  equal_loads_levels = T
+  )
+```
+
+```{r}
+#| fig-width: 5
+#| fig-height: 4
+mlts_paths(model = model, width = 5, height = 4, asp_decomp = 0.4, cex_b = 0.9)
+```
+
+:::
+  
+  
+::: {.column width="50%"}
+
+#### Additional constraints
+
+```{r}
+#| echo: true
+model = mlts_model(q = 1, p = 3)
+
+# Fix loading parameter to 1
+model$Constraint[model$Param == "lambdaW_1.2"] <- "= 1"
+# Fix error variance to be 0
+model$Constraint[model$Param == "sigmaB_1.2"] <- "= 0"
+# Remove constraints (agian)
+model$Constraint[model$Param == "sigmaB_1.2"] <- "free"
+
+```
+
+```{r}
+#| fig-width: 5
+#| fig-height: 4
+mlts_paths(model = model, width = 5, height = 4, asp_decomp = 0.45, cex_b = 0.9)
+```
+
+:::    
+
+--- 
+
+
+### Censoring Models
+
+- Approach to modeling ESM data with floor or ceiling effects
+- Floor effects challenge the normality assumptions underlying standard DSEM models 
+- Specific assumption about the data generating process underlying floor effects 
+  - Measurement-related censoring (i.e., observations are censored during measurement)
+  - Implies: There is substantial variation in the underlying construct not captured by the item that exhibits floor effects
+  
+#### Evidence in favor of the censoring notion?
+
+::: {.column width="60%"}
+```{r}
+#| fig-width: 12
+#| fig-height: 5
+#| fig-pos: left
+
+# describe_ts(data = bolzen, ts = c("nervoes", "entspannt"), group = "id") %>%
+#   arrange(desc(floor_pc))
+
+bolzen %>%
+  filter(id %in% c(11, 35)) %>%
+  group_by(id) %>%
+  mutate(
+    entspannt_r = 8-entspannt
+  ) %>%
+  
+  ggplot(aes(y = nervoes, x = obs_counter)) +
+  geom_line() +
+  geom_line(aes(y = entspannt_r), color = "darkgreen") +
+  geom_point(alpha = 0.5) +
+  geom_point(aes(y = entspannt_r), color = "darkgreen", alpha = 0.5) +
+  geom_text(x = 87, y = 1.2, hjust = 0, label = "not nervous") +
+  geom_text(x = 87, y = 1.9, hjust = 0, label = "relaxed",color = "darkgreen") +
+  geom_text(x = 87, y = 6.8, hjust = 0, label = "nervous") +
+  geom_text(x = 87, y = 6.1, hjust = 0, label = "not relaxed",color = "darkgreen") +
+  scale_x_continuous(limits = c(0,95), expand = c(0,1)) +
+  scale_y_continuous(limits = c(1,7), breaks = 1:7) +
+  labs(x = "# Beep", y = NULL) +
+  facet_grid(rows = vars(id)) +
+  theme_classic() +
+  theme(
+    panel.spacing.y = unit(0.5, "cm")
+  )
+
+
+```
+:::
+
+::: {.column width="40%"}
+
+- Inspecting unipolar items capturing the opposing ends of a continuum can be informative
+- Here, as illustrated for two individuals, when subjects report to feel not nervous at all, they still show substantial variation in the relaxed item in these moments
+- Hence, on the level of the broader construct, this suggests at qualitative differences in states of tense arousal beyond what is captured by the nervous item
+
+
+:::
+
+
+--- 
+
+### Censoring Models
+
+::: {.column width="80%"}
+
+#### Impact of Ignoring Censoring-Related Floor Effects 
+
+- Introduces spurious positive dependencies between person-specific estimates 
+  - mean-variance-relation(s) most affected
+- Censoring on the level of individual ESM items can affect estimates of analyses that use composite scores across indicators that exhibit floor effects [@Mader2023]
+  - Composite scores often show more desirable distributional properties (e.g., less floor effects)
+  - However, adverse effects on parameter estimates are not fully resolved by item aggregation
+  - → Censored multiple-indicator factor models [@Koslowski2026]
+
+:::
+
+
+---
+
+### Censoring Models
+
+#### Implementing Censoring Models 
+
+::: {.columns}
+::: {.column width="47%"}
+
+- Any model can be extended to accommodate censored variables   
+- For example, a censored AR(1):
+
+```r
+mlts_model(q = 1, censor_left = 1)
+```
+
+- where `censor_left = 1` indicates all observations $\leq$ 1 will be assumed as censored
+- These observations will be replaced with range-restricted latent parameters during model estimation 
+  - Think of it as missing value imputation with the restriction that imputed values can not exceed the censoring threshold
+  
+:::
+
+::: {.column width="6%"}
+
+:::
+
+::: {.column width="47%"}
+
+:::{.vspace}
+:::
+
+:::{.vspace}
+:::
+
+#### Caveats 
+
+- Censoring threshold can only be specified globally
+  - ergo ALL variables will be affected by censoring
+- In multivariate models, when this is not intended, we can use a workaround
+  - Assume two variables measured on a scale of 1 to 7
+  - To only treat one variable as censored, first shift the scale of that variable
+  - Then use the new lower scale bound as the censoring threshold 
+
+```r
+Y1 = Y1 - 0.1   # shifts the lower scale end to 0.9
+
+mlts_model(q = 2, censor_left = 0.9) 
+```
+
+:::
+:::
+
+

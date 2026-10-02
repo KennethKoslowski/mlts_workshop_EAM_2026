@@ -9,17 +9,10 @@
   - Strength of time-lagged relation depends on the measurement intervals
   - If ignored, AR- and CL effects lack a clear interpretation
 
-- Implemented solution (as in Mplus; Muthén & Muthén, 2017):
-  - Missing value insertion strategy (`tinterval`; Asparouhov et al., 2018)
+- Implemented solution [as in MPlus, @Muthen2017]:
+  - Missing value insertion strategy using `tinverval` [@Asparouhov2018]
   - Allows approximation of continuous-time lagged effects for specific time intervals
 
-:::{.references}
-
-Asparouhov, T., Hamaker, E. L., & Muthén, B. O. (2018). Dynamic Structural Equation Models. *Structural Equation Modeling: A Multidisciplinary Journal*, *25(3)*, 359–388. <https://doi.org/10.1080/10705511.2017.1406803>
-
-Muthén, L. K., & Muthén, B. O. (2017). *Mplus user’s guide* (8th edn). Muthén & Muthén.
-
-:::
 
 . . .
 
@@ -706,8 +699,8 @@ Misalignment of parameter priors and variables' scales
 For in-depth information:
 
   - Diagnostics provided by Stan (<https://mc-stan.org/learn-stan/diagnostics-warnings.html>)
-  - Hamilton Monte Carlo and Diagnostics (Betancourt, 2017)
-  - Graphical checks for model convergence and diagnostics (Gabry et al., 2019)
+  - Hamilton Monte Carlo and Diagnostics [@Betancourt2018]
+  - Graphical checks for model convergence and diagnostics [@Gabry2019]
 
 ::: {.vspace}
 :::
@@ -731,7 +724,7 @@ For in-depth information:
 #| fig-width: 14
 #| fig-height: 6
 
-load("sections/05-model_extensions/1.1_VAR_500.Rdata")
+load("sections/06-model_extensions/1.1_VAR_500.Rdata")
 bayesplot::mcmc_trace(
   fit_VAR$posteriors[,,c("mu_1", "sigma_phi(1)_12")],
   facet_args = list(ncol = 1)
@@ -741,12 +734,7 @@ bayesplot::mcmc_trace(
 
 ::::
 
-:::{.references}
-Betancourt, M. J. (2017). A Conceptual Introduction to Hamiltonian Monte Carlo (Version 2). *arXiv*. <https://doi.org/10.48550/ARXIV.1701.02434>
 
-Gabry, J., Simpson, D., Vehtari, A., Betancourt, M., & Gelman, A. (2019). Visualization in Bayesian Workflow. *Journal of the Royal Statistical Society Series A: Statistics in Society, 182(2)*, 389–402. <https://doi.org/10.1111/rssa.12378>
-
-:::
 
 ---
 
@@ -755,7 +743,7 @@ Gabry, J., Simpson, D., Vehtari, A., Betancourt, M., & Gelman, A. (2019). Visual
 #### Divergent Transitions 
 
 - Can indicate that parameter estimates may not be trustworthy
-  - However, false-positives are possible (for more details on this issue, see Gabry et al., 2019)
+  - However, false-positives are possible [for more details on this issue, see @Gabry2019]
   - Suggested solution is to run graphical checks
     - For example, parallel co-ordinates plots as shown below
 
@@ -773,7 +761,7 @@ bayesplot::mcmc_parcoord(
 ```
 
 ```{r, eval = F}
-load("../sections/05-model_extensions/1.1_VAR_2000.Rdata")
+load("../sections/06-model_extensions/1.1_VAR_2000.Rdata")
 np <- bayesplot::nuts_params(fit_VAR_l$stanfit)
 bayesplot::mcmc_parcoord(fit_VAR_l$posteriors, 
                          transformations = function(x){ (x - mean(x)) / sd(x)},
@@ -784,14 +772,7 @@ ggsave(filename = "04-practical_aspects/divergent_transistion_illustration.png",
 
 ```
 
-
-:::{.references}
-Betancourt, M. J. (2017). A Conceptual Introduction to Hamiltonian Monte Carlo (Version 2). *arXiv*. <https://doi.org/10.48550/ARXIV.1701.02434>
-
-Gabry, J., Simpson, D., Vehtari, A., Betancourt, M., & Gelman, A. (2019). Visualization in Bayesian Workflow. *Journal of the Royal Statistical Society Series A: Statistics in Society, 182(2)*, 389–402. <https://doi.org/10.1111/rssa.12378>
-
-
-:::
+  
 
 ---
 
@@ -799,12 +780,12 @@ Gabry, J., Simpson, D., Vehtari, A., Betancourt, M., & Gelman, A. (2019). Visual
 #### Divergent Transitions 
 
 - Can indicate that parameter estimates may not be trustworthy
-  - However, false-positives are possible (for more details on this issue, see Gabry et al., 2019)
+  - However, false-positives are possible [for more details on this issue, see @Gabry2019]
   - Suggested solution is to run graphical checks
     - For example, parallel co-ordinates plots as shown below
 
 ```{r, eval = F}
-load("sections/05-model_extensions/1.1_VAR_2000.Rdata")
+load("sections/06-model_extensions/1.1_VAR_2000.Rdata")
 np <- bayesplot::nuts_params(fit_VAR_l$stanfit)
 bayesplot::mcmc_parcoord(fit_VAR_l$posteriors, 
                          transformations = function(x){ (x - mean(x)) / sd(x)},
@@ -822,12 +803,5 @@ knitr::include_graphics(path = "sections/04-practical_aspects/divergent_transist
 ```
 
 
-:::{.references}
-Betancourt, M. J. (2017). A Conceptual Introduction to Hamiltonian Monte Carlo (Version 2). *arXiv*. <https://doi.org/10.48550/ARXIV.1701.02434>
-
-Gabry, J., Simpson, D., Vehtari, A., Betancourt, M., & Gelman, A. (2019). Visualization in Bayesian Workflow. *Journal of the Royal Statistical Society Series A: Statistics in Society, 182(2)*, 389–402. <https://doi.org/10.1111/rssa.12378>
-
-
-:::
 
 ---

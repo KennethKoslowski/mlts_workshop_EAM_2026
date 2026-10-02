@@ -9,8 +9,8 @@ library(tidyr)
 library(ggplot2)
 
 # Assuming you did run 'bolzen_prepare.R' to download and preprocess the data 
-bolzen <- readRDS("downloaded_data/bolzen.rda")
-bolzen_grid <- readRDS("downloaded_data/bolzen_grid.rda")
+load("downloaded_data/bolzen.rda")
+load("downloaded_data/bolzen_grid.rda")
 
 # preparate a folder to store results 
 dir.create(path = "live_session/live_session2_fits/")

@@ -23,7 +23,7 @@ knitr::opts_chunk$set(
 options(knitr.kable.NA = '')
 
 bayesplot::bayesplot_theme_set(
-  bayesplot::theme_default(base_size = 18)
+  bayesplot::theme_default(base_size = 16)
 )
 
 # load data at this point to make it globally available

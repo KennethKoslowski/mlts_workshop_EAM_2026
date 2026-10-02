@@ -1,0 +1,224 @@
+
+# Live Session II (2 x 30 min)
+
+* Session aims:
+  * Become familiar with some of the advanced modeling options 
+  * Encounter some common issues and implement a fix
+
+* What to do?
+  * Work with your own data, OR
+  * Try working on the examples provided on the Github-page
+    * `live_session/live_session2.R` 
+    * We later discuss the solutions
+    * Important: For practical reasons, we only use the `bolzen` data frame for all analyses (without `tinterval`). Please do the same but keep in mind that the results may be taken with a large grain of salt.
+    * Set `seed = 1234` in `mlts_fit()`, to replicate the exact results
+      
+--- 
+
+## 1. Bivariate VAR(1) model
+
+::: {.panel-tabset}
+
+### Task
+
+**Model:** 
+
+- Bivariate VAR(1) model with random means
+
+**Variables:** 
+
+- Use repetitive negative thinking (`rnt`) and positive affect composite score (`posaff`) as time series variables
+
+**Data:**
+
+- Use only data of the intervention phase (`phase = "i"` ) and only of subject in the detached mindfulness condition (`group = "dm"`) 
+
+**To explore:**
+
+
+### Solution
+
+```r
+# model specification
+model = mlts_model(
+  q = 2,
+  fix_dynamics = TRUE,
+  fix_inno_vars = TRUE
+)
+
+# model estimation 
+fit_1.1 = mlts_fit(
+  model = model,
+  data = bolzen %>% filter(group == "dm" & phase == "i"), 
+  id = "id",
+  ts = c("rnt", "posaff"),
+  iter = 2000,
+  seed = 1234
+)
+```
+
+### Results 
+
+```{r}
+load("live_session/live_session2_fits/Model_1.1_VAR1.Rdata")
+```
+
+```{r}
+summary_lines <- capture.output(summary(fit_1.1, digits = 2))
+cat(summary_lines[1:31], sep = "\n")  
+```
+
+
+
+:::
+
+## 2. Between-Level Covariates
+
+::: {.panel-tabset}
+
+### Task
+
+**Model:** 
+
+- Two-level AR(1) model with random means, random AR effects, and random innovation variances
+- Add a covariate as predictor for all random effects in the model
+
+**Variables:** 
+
+- Use negative affect composite score (`negaff`) as time series variable
+- Use the treatment condition as binary predictor variable 
+  - `group` is a character variable that needs to be transformed into a binary-coded (0 and 1) predictor first  
+
+**Data:**
+
+- Use only data of the intervention phase
+
+**Additional:**
+
+- Try requesting standardized regression parameter estimates for the effect of the treatment condition
+
+### Solution
+
+```r
+#  Person-level covariate: binary-coded intervention condition 
+#  (0 = mindfullness, 1 = detached mindfullness)
+bolzen$group_bi = ifelse(bolzen$group == "dm", 1, 0)
+
+# model specification
+model = mlts_model(
+  q = 1,                   
+  ranef_pred = "group_bi" # name of covariate in the data
+)
+
+# model estimation 
+fit_2.1 = mlts_fit(
+  model = model,
+  data = bolzen %>% filter(phase == "i"), # subset of the data 
+  id = "id",
+  ts = c("negaff"),
+  iter = 2000,
+  seed = 1234,
+  # IMPORTANT:
+  # For binary covariates, to avoid cluster-mean centering, set
+  center_covs = FALSE
+)
+```
+
+### Results | Model Convergence
+
+```{r}
+load("live_session/live_session2_fits/Model_2.1_AR1_with_covariate.Rdata")
+```
+
+```{r}
+summary_lines <- capture.output(summary(fit_2.1, flag_signif = TRUE, digits = 2))
+cat(summary_lines[1:8], sep = "\n")  # e.g. first 10 
+cat("[...]")
+```
+
+### Results | Estimates
+
+```{r}
+cat(summary_lines[10:33], sep = "\n")  # e.g. first 10 
+```
+
+### Results | Std. Estimates
+```{r}
+#| echo: true
+mlts_standardized(fit_2.1)
+```
+
+:::
+
+
+## 3. Prediction of Time-Stable Outcomes
+
+::: {.panel-tabset}
+
+### Task
+
+**Model:** 
+
+- Two-level AR(1) model with random means, random AR effects, and random innovation variances
+- Use assessment of trait repetitive negative thinking after the intervention phase (`post_rtq_sum`) as outcome regressed on all random effects in the model AND include baseline assessment of trait repetitive negative (`pre_rqt_sum`) as additional predictor
+
+**Variables:** 
+
+- Use positive affect composite score (`posaff`) as time series variable
+- Outcome: `post_rtq_sum`
+- Additional predictor: `pre_rqt_sum`
+
+**Data:**
+
+- Use only data of the intervention phase
+
+
+### Solution
+
+```r
+# model specification
+model = mlts_model(
+  q = 1,                   
+  out_pred = "post_rtq_sum",
+  out_pred_add_btw = "pre_rtq_sum"
+)
+
+# model estimation 
+fit_3.1 = mlts_fit(
+  model = model,
+  data = bolzen %>% filter(phase == "i"), # subset of the data 
+  id = "id",
+  ts = c("posaff"),
+  iter = 2000,
+  seed = 1234
+)
+```
+
+### Results | Model Convergence
+
+```{r}
+load("live_session/live_session2_fits/Model_3.1_AR1_with_outcome.Rdata")
+```
+
+```{r}
+summary_lines <- capture.output(summary(fit_3.1, flag_signif = TRUE, digits = 2))
+cat(summary_lines[1:8], sep = "\n")  # e.g. first 10 
+cat("[...]")
+```
+
+### Results | Estimates
+
+```{r}
+options(width = 200)  # increase from default ~80
+cat(summary_lines[10:36], sep = "\n")  # e.g. first 10 
+```
+
+### Results | Std. Estimates
+```{r}
+#| echo: true
+mlts_standardized(fit_3.1)
+```
+
+:::
+
+

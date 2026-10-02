@@ -8,8 +8,6 @@ library(dplyr)
 library(tidyr)
 library(rstan)
 
-# Run 'bolzen_prepare.R' to download and preprocess the data 
-source("live_session/bolzen_prepare.R")
 
 # 1. AR(1) model for repetitive negative thinking #############################
 

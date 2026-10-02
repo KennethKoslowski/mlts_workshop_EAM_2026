@@ -10,17 +10,23 @@ source("R/setup.R")
 ```
 
 
-<!-- {{< include sections/01-welcome.qmd >}} -->
+{{< include sections/01-welcome.qmd >}}
 
 <!-- {{< include sections/02-intro_dsem.qmd >}} -->
 
-<!-- {{< include sections/03-live_session1.qmd >}} -->
+{{< include sections/03-live_session1.qmd >}}
 
-<!-- {{< include sections/04-practical_aspects.qmd >}} -->
+{{< include sections/04-practical_aspects.qmd >}}
 
-{{< include sections/05-model_extensions.qmd >}}
+{{< include sections/05-simulating_data.qmd >}}
 
-<!-- {{< include sections/06-live_session2.qmd >}} -->
+{{< include sections/06-model_extensions_I.qmd >}}
 
-<!-- {{< include sections/07-wrap_up.qmd >}} -->
+{{< include sections/07-live_session2_I.qmd >}}
+
+{{< include sections/08-model_extensions_II.qmd >}}
+
+{{< include sections/09-live_session2_II.qmd >}}
+
+{{< include sections/10-wrap_up.qmd >}}
 

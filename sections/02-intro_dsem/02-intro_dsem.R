@@ -178,7 +178,7 @@ mlts_pp_check(mlts_fit1_pp) +
   )
 
 # save
-saveRDS(mlts_fit1, file = "./sections/02-intro_dsem/mlts_fit1_pp.rds")
+saveRDS(mlts_fit1_pp, file = "./sections/02-intro_dsem/mlts_fit1_pp.rds")
 
 
 ## Restrict innovation variance ===============================================

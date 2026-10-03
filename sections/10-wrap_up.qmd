@@ -116,8 +116,7 @@ fit$data <- NULL
 
 * If you have issues or find bugs in the package, please post an issue on our Github. We'll try to be quick!
 * If you code yourself and have some features that you would like to see in the package, contact us or visit the Github project! We are always grateful for help :)
-* We do another (full-day) workshop on October 6 in Jena hosted by the European Association of Methodology (EAM)
-* Check out the tutorial article: [https://osf.io/j85tp_v1][https://osf.io/j85tp_v1] (will be published soon in Psychological Methods)
+* Check out our tutorial article: <https://psycnet.apa.org/doiLanding?doi=10.1037%2Fmet0000866>
 
 ::: {.vspace}
 :::

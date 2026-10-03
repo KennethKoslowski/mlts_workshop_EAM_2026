@@ -12,7 +12,7 @@ source("R/setup.R")
 
 {{< include sections/01-welcome.qmd >}}
 
-<!-- {{< include sections/02-intro_dsem.qmd >}} -->
+{{< include sections/02-intro_dsem.qmd >}}
 
 {{< include sections/03-live_session1.qmd >}}
 

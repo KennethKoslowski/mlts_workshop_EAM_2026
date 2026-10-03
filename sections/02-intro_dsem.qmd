@@ -881,9 +881,9 @@ $$
 
 $$
 \begin{aligned}
-\upsilon_{\mu i} &\sim \operatorname{N}(0, `r round(sigma_mu_mlts^2,2)`) \\
-\upsilon_{\phi i} &\sim \operatorname{N}(0, `r round(sigma_phi_mlts^2,2)`) \\
-\upsilon_{\ln(\sigma^2) i} &\sim \operatorname{N}(0, `r round(sigma_ln_sigma_mlts^2,2)`)
+\upsilon_{\mu i} &\sim \operatorname{N}(0, `r round(sigma_mu_mlts,2)`^2) \\
+\upsilon_{\phi i} &\sim \operatorname{N}(0, `r round(sigma_phi_mlts,2)`^2) \\
+\upsilon_{\ln(\sigma^2) i} &\sim \operatorname{N}(0, `r round(sigma_ln_sigma_mlts,2)`^2)
 \end{aligned}
 $$ 
 :::
@@ -891,9 +891,9 @@ $$
 $$
 \left[
 \begin{array}{ccc}
- & & \\
-`r round(cor_mu_phi_mlts, 2)` &  & \\
-`r round(cor_mu_ln.sigma_mlts, 2)` & `r round(cor_phi_ln.sigma_mlts, 2)` & \hphantom{1.0}
+ & & \vphantom{1^2}  \\
+`r round(cor_mu_phi_mlts, 2)` &  & \vphantom{1^2} \\
+`r round(cor_mu_ln.sigma_mlts, 2)` & `r round(cor_phi_ln.sigma_mlts, 2)` & \hphantom{1.0} \vphantom{1^2}
 \end{array}
 \right]
 $$  
@@ -972,6 +972,96 @@ cat('</code></pre>\n</div>')
 # cat("[...]")
 ```
 
+
+:::
+::::
+
+---
+
+## Model Results III: Random Effect Distributions
+
+```{r}
+#| echo: false
+#| eval: true
+
+# model-implied distributions of the person-specific parameters:
+# N(fixed effect, SD of random effect)
+re_params <- tibble(
+  param = factor(
+    c("Mean~level~(mu[i])",
+      "Autoregression~(phi[i])",
+      "Log~innovation~variance~(ln~sigma[i]^2)"),
+    levels = c("Mean~level~(mu[i])",
+               "Autoregression~(phi[i])",
+               "Log~innovation~variance~(ln~sigma[i]^2)")
+  ),
+  fixed = c(gamma0_mu_mlts, gamma0_phi_mlts, gamma0_ln_sigma_mlts),
+  sd    = c(sigma_mu_mlts, sigma_phi_mlts, sigma_ln_sigma_mlts)
+)
+
+# density curves (fixed effect +/- 4 SDs)
+re_dens <- re_params |>
+  rowwise() |>
+  reframe(
+    param = param,
+    fixed = fixed,
+    sd = sd,
+    x = seq(fixed - 4 * sd, fixed + 4 * sd, length.out = 400),
+    density = dnorm(x, fixed, sd)
+  ) |>
+  mutate(in_95 = abs(x - fixed) <= 1.96 * sd)
+
+# labels showing the model-implied distribution
+re_labels <- re_params |>
+  mutate(label = sprintf("N(%.2f, %.2f²)", fixed, sd))
+```
+
+:::: {.columns}
+
+::: {.column width = "35%"}
+
+* Each person has their own $\mu_i$, $\phi_i$, and $\ln(\sigma^2_i)$
+* The model assumes these person-specific parameters are **normally distributed** around the fixed effect (mean) with the estimated random effect SD
+* The shaded area covers the central 95% of the model-implied parameters
+* Example: $\phi_i$ ranges from about `r round(gamma0_phi_mlts - 1.96 * sigma_phi_mlts, 2)` to `r round(gamma0_phi_mlts + 1.96 * sigma_phi_mlts, 2)` $\rightarrow$ people differ substantially in their inertia
+* Note the scales: $\ln(\sigma^2_i)$ is on the log-scale, so `exp()` transforms it back to a variance
+
+:::
+:::  {.column width = "5%"}
+:::
+
+::: {.column width = "60%"}
+
+```{r}
+#| echo: false
+#| eval: true
+#| out-width: "100%"
+#| fig-height: 6
+#| fig-align: center
+
+ggplot(re_dens, aes(x = x, y = density)) +
+  geom_area(
+    data = ~ filter(.x, in_95),
+    fill = "#4F7F39", alpha = 0.3
+  ) +
+  geom_line(linewidth = 1, color = "#4F7F39") +
+  geom_vline(
+    data = re_params, aes(xintercept = fixed),
+    linetype = "dashed", linewidth = 0.8
+  ) +
+  geom_text(
+    data = re_labels,
+    aes(x = fixed, y = Inf, label = label),
+    vjust = 2.5, hjust = -1.1, size = 6, inherit.aes = FALSE
+  ) +
+  facet_wrap(~ param, ncol = 1, scales = "free", labeller = label_parsed) +
+  labs(x = "Person-specific parameter value", y = "Density") +
+  theme(
+    axis.text.y = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.text = element_text(face = "bold")
+  )
+```
 
 :::
 ::::
@@ -1165,7 +1255,7 @@ cor_mu_phi_mlts2 <- mlts_fit2[["pop.pars.summary"]][mlts_fit2[["pop.pars.summary
 
 $$
 Y_{it}^w = `r round(gamma0_phi_mlts2, 2)` ~ Y_{i(t-1)}^{w} + \zeta_{it} \\
-\zeta_{it} \sim N(0, `r round(gamma0_sigma_mlts2^2, 2)`)
+\zeta_{it} \sim N(0, `r round(gamma0_sigma_mlts2, 2)`^2)
 $$ 
 
 
@@ -1179,8 +1269,8 @@ $$
 
 $$
 \begin{aligned}
-\upsilon_{\mu i} &\sim \operatorname{N}(0, `r round(sigma_mu_mlts2^2,2)`) \\
-\upsilon_{\phi i} &\sim \operatorname{N}(0, `r round(sigma_phi_mlts2^2,2)`)
+\upsilon_{\mu i} &\sim \operatorname{N}(0, `r round(sigma_mu_mlts2,2)`^2) \\
+\upsilon_{\phi i} &\sim \operatorname{N}(0, `r round(sigma_phi_mlts2,2)`^2)
 \end{aligned}
 $$ 
 :::
@@ -1188,8 +1278,8 @@ $$
 $$
 \left[
 \begin{array}{cc}
- & \\
-`r round(cor_mu_phi_mlts, 2)` & \hphantom{1.0}
+ &  \vphantom{1^2} \\
+`r round(cor_mu_phi_mlts2, 2)` & \hphantom{1.0} \vphantom{1^2}
 \end{array}
 \right]
 $$  
@@ -1347,7 +1437,7 @@ cor_phi1_phi2_mlts3 <- mlts_fit3[["pop.pars.summary"]][mlts_fit3[["pop.pars.summ
 
 $$
 Y_{it}^w = `r round(gamma0_phi1_mlts3, 2)` ~ Y_{i(t-1)}^{w} + `r round(gamma0_phi2_mlts3, 2)` ~ Y_{i(t-2)}^{w} + \zeta_{it} \\
-\zeta_{it} \sim N(0, `r round(gamma0_sigma_mlts3^2, 2)`)
+\zeta_{it} \sim N(0, `r round(gamma0_sigma_mlts3, 2)`^2)
 $$ 
 
 
@@ -1361,9 +1451,9 @@ $$
 
 $$
 \begin{aligned}
-\upsilon_{\mu i} &\sim \operatorname{N}(0, `r round(sigma_mu_mlts3^2,2)`) \\
-\upsilon_{\phi(1) i} &\sim \operatorname{N}(0, `r round(sigma_phi1_mlts3^2,2)`) \\
-\upsilon_{\phi(2) i} &\sim \operatorname{N}(0, `r round(sigma_phi2_mlts3^2,2)`)
+\upsilon_{\mu i} &\sim \operatorname{N}(0, `r round(sigma_mu_mlts3,2)`^2) \\
+\upsilon_{\phi(1) i} &\sim \operatorname{N}(0, `r round(sigma_phi1_mlts3,2)`^2) \\
+\upsilon_{\phi(2) i} &\sim \operatorname{N}(0, `r round(sigma_phi2_mlts3,2)`^2)
 \end{aligned}
 $$ 
 :::
@@ -1371,9 +1461,9 @@ $$
 $$
 \left[
 \begin{array}{ccc}
- & & \\
-`r round(cor_mu_phi1_mlts3, 2)` &  & \\
-`r round(cor_mu_phi2_mlts3, 2)` & `r round(cor_phi1_phi2_mlts3, 2)` & \hphantom{1.0}
+ & & \vphantom{1^2} \\
+`r round(cor_mu_phi1_mlts3, 2)` &  & \vphantom{1^2}\\
+`r round(cor_mu_phi2_mlts3, 2)` & `r round(cor_phi1_phi2_mlts3, 2)` & \hphantom{1.0} \vphantom{1^2}
 \end{array}
 \right]
 $$  
@@ -1422,7 +1512,7 @@ summary(mlts_fit3)
 
 summary_lines <- capture.output(summary(mlts_fit3))
 cat("[...]")
-cat(summary_lines[10:29], sep = "\n")  # e.g. first 10
+cat(summary_lines[10:33], sep = "\n")  # e.g. first 10
 
 ```
 
@@ -1552,4 +1642,313 @@ bolzen_baseline %>%
 :::
 ::::
 
+
+## Convergence Warnings: What Is Going On?
+
+```{r}
+#| include: false
+options(width = 120)
+```
+
+:::: {.columns}
+
+::: {.column width = "40%"}
+
+* The very top of `summary(mlts_fit3)` reports the **convergence checks** of `rstan`
+* The model with AR(2) effects gets flagged here
+* To make sense of these warnings, we need to understand what happens "under the hood" of the estimation
+
+### Short Detour: Bayesian estimation with MCMC
+
+* What do we estimate?
+* How does the sampler work?
+* How do we check that it worked?
+
+#### We will come back to the warnings and what to do about them in the section on practical aspects (Part 4)
+
+:::
+:::  {.column width = "2%"}
+:::
+
+::: {.column width = "58%"}
+
+```{r}
+#| echo: true
+#| eval: false
+
+summary(mlts_fit3)
+```
+
+```{r}
+#| echo: false
+#| eval: true
+
+summary_lines <- capture.output(summary(mlts_fit3))
+cat(summary_lines[1:10], sep = "\n")
+cat("[...]")
+```
+
+:::
+::::
+
+---
+
+## Bayesian Estimation in a Nutshell
+
+
+* Bayesian estimation combines what we know **before** seeing the data (prior) with what the data tell us (likelihood)
+* The result is not a single point estimate, but a whole distribution: the **posterior**
+
+$$
+\underbrace{p(\theta \mid y)}_{\text{posterior}} \;\propto\; \underbrace{p(y \mid \theta)}_{\text{likelihood}} \; \underbrace{p(\theta)}_{\text{prior}}
+$$
+
+
+* In our model, $\theta$ contains
+  * the fixed effects (e.g., $\mu$, $\phi(1)$, $\phi(2)$)
+  * the random effect SDs and correlations
+  * the person-specific parameters of all $N = `r length(unique(bolzen_baseline$id))`$ persons
+* The posterior is a distribution over **all of these parameters at once**
+* For such a multilevel time-series model, we cannot write down this posterior in closed form
+
+#### A short note on priors
+
+<!-- * Setting priors is a fundamental part in a Bayesian analysis -->
+* In `mlts`, we set **weakly informative** priors by default for all model parameters
+* If you have justified assumptions about a certain range of parameter values, you can encode this knowledge by changing the prior distributions
+
+---
+
+## Markov Chain Monte Carlo (MCMC)
+
+```{r}
+#| echo: false
+#| eval: true
+
+# idealized illustration: draws from a posterior (here: N(0.57, 0.03))
+set.seed(2026)
+draws_n <- c(10, 100, 1000, 10000)
+draws_df <- map_dfr(
+  draws_n,
+  ~ tibble(n = .x, value = rnorm(.x, mean = 0.57, sd = 0.03))
+) |>
+  mutate(n = factor(n, levels = draws_n, labels = paste0(format(draws_n, big.mark = ",", trim = TRUE), " draws")))
+
+curve_df <- tibble(
+  value = seq(0.45, 0.69, length.out = 300),
+  density = dnorm(value, 0.57, 0.03)
+)
+```
+
+
+```{r}
+#| echo: false
+#| eval: true
+
+# toy random-walk Metropolis sampler for a posterior N(0.57, 0.03)
+metropolis <- function(start, n = 500, step = 0.03, mu = 0.57, sd = 0.03) {
+  x <- numeric(n)
+  cur <- start
+  for (i in seq_len(n)) {
+    prop <- cur + rnorm(1, 0, step)
+    log_ratio <- dnorm(prop, mu, sd, log = TRUE) - dnorm(cur, mu, sd, log = TRUE)
+    if (log(runif(1)) < log_ratio) cur <- prop
+    x[i] <- cur
+  }
+  x
+}
+
+set.seed(2026)
+starts <- c(0.2, 0.4, 0.8, 0.95)
+toy_chains <- imap_dfr(
+  starts,
+  function(s, k) tibble(
+    chain = factor(paste("Chain", k)),
+    iteration = 1:500,
+    value = metropolis(s)
+  )
+)
+n_warmup_toy <- 100
+```
+
+:::: {.columns}
+
+::: {.column width = "50%"}
+
+* Instead of calculating the posterior, we **draw samples** from it
+* A sampler (a "Markov chain") moves through the parameter space and visits regions in proportion to their posterior probability
+* Everything we report is a **summary of the draws**:
+  * posterior mean, SD, and credible intervals (`Mean`, `SD`, `2.5%`, `97.5%` in the `summary()`)
+  * the more (good) draws, the better the approximation
+
+#### Chains, warmup, and draws
+  
+* Samplers are started several times from different (random) starting values: **chains**
+* At the start, chains have not yet found the region of high posterior probability $\rightarrow$ **warmup** (the first draws are discarded)
+* After warmup, all chains should wander around the same region and look like a "fat hairy caterpillar"
+* If chains do **not** agree with each other, they have not converged $\rightarrow$ we cannot trust the draws
+
+:::
+:::  {.column width = "2%"}
+:::
+
+::: {.column width = "48%"}
+
+```{r}
+#| echo: false
+#| eval: true
+#| out-width: "90%"
+#| fig-height: 4.5
+#| fig-align: center
+
+ggplot(draws_df, aes(x = value)) +
+  geom_histogram(
+    aes(y = after_stat(density)),
+    bins = 30, fill = "#4F7F39", alpha = 0.4, color = "white"
+  ) +
+  geom_line(
+    data = curve_df, aes(y = density),
+    linewidth = 1, linetype = "dashed"
+  ) +
+  facet_wrap(~ n, nrow = 2, scales = "free_y") +
+  labs(
+    x = "Parameter value", y = NULL,
+    caption = "Dashed line: true posterior; bars: histogram of the draws"
+  ) +
+  theme(
+    axis.text.y = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.text = element_text(face = "bold")
+  )
+```
+
+```{r}
+#| echo: false
+#| eval: true
+#| out-width: "90%"
+#| fig-height: 4.5
+#| fig-align: center
+
+ggplot(toy_chains, aes(x = iteration, y = value, color = chain)) +
+  annotate(
+    "rect", xmin = 0, xmax = n_warmup_toy, ymin = -Inf, ymax = Inf,
+    fill = "grey80", alpha = 0.5
+  ) +
+  annotate(
+    "text", x = n_warmup_toy / 2, y = 0.95, label = "warmup",
+    size = 6, color = "grey30"
+  ) +
+  geom_line(linewidth = 0.5, alpha = 0.8) +
+  scale_color_manual(values = c("#4F7F39", "#1F77B4", "#E69F00", "#B2182B")) +
+  labs(
+    x = "Iteration", y = "Parameter value", color = NULL,
+    caption = "Toy example: 4 chains of a simple Metropolis sampler"
+  ) +
+  theme(legend.position = "bottom", panel.grid.minor = element_blank())
+```
+
+
+
+:::
+::::
+
+
+## MCMC in `mlts`
+
+:::: {.columns}
+
+::: {.column width = "40%"}
+
+* `mlts` uses `rstan`, i.e., the sampler of Stan (a variant of Hamiltonian Monte Carlo called **NUTS**)
+* With `iter = 2000` and the default of 2 chains
+  * the first 1000 iterations of each chain are warmup (discarded)
+  * the last 1000 iterations of each chain are kept
+  * $\rightarrow$ 2,000 post-warmup draws per parameter
+* The `summary()` is based on these 2,000 draws
+* Traceplots show whether the chains mix well
+
+:::
+:::  {.column width = "2%"}
+:::
+
+::: {.column width = "58%"}
+
+```{r}
+#| echo: true
+#| eval: false
+
+mlts_fit3 <- mlts_fit(
+  ...,
+  iter = 2000,  # default: 500
+  chains = 2    # default: 2
+)
+
+rstan::traceplot(mlts_fit3$stanfit,
+                 pars = "gammas")
+```
+
+```{r}
+#| echo: false
+#| eval: true
+#| out-width: "100%"
+#| fig-height: 4
+#| fig-align: center
+
+rstan::traceplot(mlts_fit3$stanfit,
+                 pars = "gammas")
+```
+
+:::
+::::
+
+---
+
+## How Do We Know the Sampler Worked?
+
+:::: {.columns}
+
+::: {.column width = "40%"}
+
+#### Convergence diagnostics
+
+Reported at the top of the `summary()`:
+
+* **Rhat** ($\hat{R}$, potential scale reduction factor): compares the variance between and within chains
+  * Should be close to 1 (here: $< 1.01$)
+* **ESS** (effective sample size, bulk and tail): draws of a Markov chain are autocorrelated, so 2,000 draws are worth fewer independent draws
+  * Should be large enough (here: $> 200$, i.e., 100 per chain)
+* **Divergent transitions**: the sampler had trouble exploring the posterior
+  * Should be 0
+  
+
+:::
+:::  {.column width = "5%"}
+:::
+
+::: {.column width = "55%"}
+
+```{r}
+#| echo: true
+#| eval: false
+
+summary(mlts_fit3)
+```
+
+```{r}
+#| echo: false
+#| eval: true
+
+summary_lines <- capture.output(summary(mlts_fit3))
+cat(summary_lines[1:10], sep = "\n")
+cat("[...]")
+```
+
+#### Back to our AR(2) model
+
+* The warnings we see for `mlts_fit3` tell us which of these checks failed (Bulk and Tail ESS are below 200 for at least one parameter)
+* This does **not** automatically mean the model is useless, but we should be careful with interpreting the results
+* In this specific case, it is probably enough to run more iterations of the Markov chain to get a higher ESS
+
+:::
+::::
 

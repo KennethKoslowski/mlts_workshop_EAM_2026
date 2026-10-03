@@ -95,18 +95,6 @@
 ::::
 
 
-<!-- ## Today's program -->
-
-
-
-<!-- | Time (est.) | | -->
-<!-- |:-----|:------| -->
-<!-- | 9.00 to 9.45 | Welcome <br> Intro to DSEM and multilevel latent time series analysis <br> Basic workflow with `mlts` | -->
-<!-- | 9.45 to 10.15 | Hands-on session with example data | -->
-<!-- | 10.15 to 11.00 | Modeling options in mlts: -->
-
-
-<!-- ---  -->
 
 ## Today's program I (morning)
 
@@ -245,6 +233,66 @@
 ::::
 
 
+## How the live sessions work (on Zoom)
+
+Our live sessions run in **breakout rooms**. You decide how you want to work:
+
+::: {.vspace}
+:::
+
+::: {.vspace}
+:::
+
+:::: {.columns}
+
+::: {.column width="31%"}
+### Team up
+
+* Work through the exercises in **teams of two or three**
+* Come alone but want a partner? Tell us (see next slide) and we will match you with others
+* Tip: one person shares their screen and codes, the others think along. Swap roles per exercise
+:::
+
+::: {.column width="3.5%"}
+:::
+
+::: {.column width="31%"}
+### Solo, with help nearby
+
+* Work on your own in the **shared help room**
+* One of us is there most of the time
+* Stuck? Just ask in the room or use Zoom's **Ask for help** button
+:::
+
+::: {.column width="3.5%"}
+:::
+
+::: {.column width="31%"}
+### Do your own thing
+
+* Explore your own data, a different model, or the material at your own pace
+* Just come back to the main room when the breakout session ends
+* You can reach us any time via the chat or by joining the help room
+:::
+
+::::
+
+
+## How to join
+
+1. We open a **poll**: choose *Team up*, *Solo*, or *Own thing*
+2. **Looking for a partner?** Choose *Team up* and join the room "Looking for a partner". We will form groups of two to three there and send you off to your own room
+3. Otherwise, pick a room yourself from the breakout room list:
+    * **Teams**: your own room, once you are matched
+    * **Help desk**: the shared help room
+    * **Solo**: work on your own
+4. You can switch rooms at any point. Teams can also split up or merge
+
+**We will announce when the breakout session is about to end. Please come back to the main room then.**
+
+* Stuck on an exercise? Prefitted models and the solution scripts are in the `live_session` directory
+
+
 --- 
 
 
@@ -254,17 +302,18 @@
 
 ### Get the workshop materials from our workshop Github:
 
-#### With package `usethis` (recommended)
+#### With package `usethis` (recommended, no Git or GitHub account needed)
 
 ```{r}
 #| echo: true
 #| eval: false
 
 install.packages("usethis")
-usethis::create_from_github("https://github.com/KennethKoslowski/mlts_workshop_EAM_2026")
+usethis::use_course("KennethKoslowski/mlts_workshop_EAM_2026")
 ```
 
-* This should download the workshop directory and open the R project file directly
+* This downloads the workshop directory as a ZIP file, unpacks it into a folder of your choice, and (usually) opens the R project in a new R session
+* If no new R session opens, open the file `mlts_workshop_EAM_2026.Rproj` in the new folder by clicking it
 
 
 #### Or download the Github project as ZIP file:

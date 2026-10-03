@@ -12,45 +12,8 @@ library(tidyr)
 
 # Get Data ####################################################################
 
-# get data set
-# Link to ESM data on OSF
-esm_link <- "https://osf.io/q4czt"
-survey_link <- "https://osf.io/ecsj9"
-
-# ESM DATA 
-downloaded_esm <- osf_download(
-  osf_retrieve_file(esm_link),
-  path = tempdir(),
-  conflicts = "overwrite"
-)
-esm <- read.csv(downloaded_esm$local_path)
-
-
-# SURVEY DATA 
-downloaded_survey <- osf_download(
-  osf_retrieve_file(survey_link),
-  path = tempdir(),
-  conflicts = "overwrite")
-survey   <- read.csv(downloaded_survey$local_path)
-
-# clean-up
-unlink(c("downloaded_esm", "downloaded_survey"))
-rm(downloaded_esm, downloaded_survey)
-
-# select relevant survey items to add to esm data 
-use <- c("id", "group", "pre_rtq_sum", "post_rtq_sum")
-survey <- survey[, use]
-
-# center
-survey$pre_rtq_sum_cen <- survey$pre_rtq_sum - mean(survey$pre_rtq_sum)
-survey$post_rtq_sum_cen <- survey$post_rtq_sum - mean(survey$post_rtq_sum)
-
-
-# Merge data 
-bolzen <- merge(x = survey, y = esm, by = c("id", "group"), all = TRUE)
-
-# plot positive affect
-hist(bolzen$posaff, main = "Positive Affect", xlab = NULL)
+# load data
+load("./downloaded_data/bolzen.rda")
 
 
 # Two-Level AR(1)-Model using lme4 ############################################
@@ -180,6 +143,9 @@ summary(mlts_fit1)
 # inspect traceplot for chain mixing
 rstan::traceplot(mlts_fit1$stanfit)
 
+# save in directory
+saveRDS(mlts_fit1, file = "./sections/02-intro_dsem/mlts_fit1.rds")
+
 
 ## Helper functions after model fitting =======================================
 
@@ -210,6 +176,9 @@ mlts_pp_check(mlts_fit1_pp) +
     limits = c(bolzen_mean - 4 * bolzen_sd,
                bolzen_mean + 4 * bolzen_sd)
   )
+
+# save
+saveRDS(mlts_fit1, file = "./sections/02-intro_dsem/mlts_fit1_pp.rds")
 
 
 ## Restrict innovation variance ===============================================
@@ -250,6 +219,10 @@ mlts_fit2_pp <- mlts_fit(
 
 mlts_pp_check(mlts_fit2_pp)
 
+# save
+saveRDS(mlts_fit2, file = "./sections/02-intro_dsem/mlts_fit2.rds")
+saveRDS(mlts_fit2_pp, file = "./sections/02-intro_dsem/mlts_fit2_pp.rds")
+
 
 ## Add AR(2) effect ===========================================================
 
@@ -285,6 +258,9 @@ mlts_fit3_pp <- mlts_fit(
 mlts_pp_check(mlts_fit3_pp)
 
 
+# save
+saveRDS(mlts_fit3, file = "./sections/02-intro_dsem/mlts_fit3.rds")
+saveRDS(mlts_fit3_pp, file = "./sections/02-intro_dsem/mlts_fit3_pp.rds")
 
 # Check assumptions of AR model ###############################################
 
@@ -314,7 +290,7 @@ bolzen_baseline %>%
   filter(id == 1) %>%
   ggplot(aes(y = posaff, x = timepoint, group = time_window)) +
   geom_point() +
-  geom_line() + 
+  geom_line() +
   facet_grid(. ~ dayphase_counter + time_window) +
   labs(x = "Time Point", y = "Positive affect", title = "Real Data Structure") +
   theme_minimal(base_size = 14) +

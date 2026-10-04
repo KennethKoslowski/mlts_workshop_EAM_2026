@@ -40,7 +40,7 @@ hist(bolzen$posaff, main = "Positive Affect", xlab = NULL)
 
 #### Data Preparation
 
-<!-- * To prepare the data, run the R script [`bolzen_prepare.R`](./live_sessoin/bolzen_prepare.R) -->
+* To prepare the data, run the R script `bolzen_prepare.R` in the live_session directory (if you haven't done already!)
 * If you just want to follow along with the slides, that's also fine!
 
 :::
@@ -74,7 +74,7 @@ $Y_{it}$ is centered at the observed person mean!
 #### Within-level model
 
 $$
-Y_{it} = \mu_i + \phi_i Y_{i(t-1)}^{pmc} + \zeta_{it} \\
+Y_{it} = \overline{Y}_i + \phi_i Y_{i(t-1)}^{pmc} + \zeta_{it} \\
 \zeta_{it} \sim \operatorname{N}(0, \sigma_{\zeta}^2)
 $$ 
 
@@ -85,7 +85,7 @@ $$
 
 $$
 \begin{matrix}
-\mu_i  = \gamma_{\mu}  + \upsilon_{\mu i} \\
+\overline{Y}_i  = \gamma_{\overline{Y}}  + \upsilon_{\overline{Y} i} \\
 \phi_i = \gamma_{\phi} + \upsilon_{\phi i}
 \end{matrix}
 $$ 

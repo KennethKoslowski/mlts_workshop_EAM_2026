@@ -83,12 +83,13 @@
 
 ### Prerequisites for today
 
-* R and RStudio
+#### R and RStudio
 
 1. [R](https://www.r-project.org/)
 2. [RStudio](https://posit.co/downloads)
 
 * If you haven't installed them already, now is a good time!
+* Everything else will be prepared within the workshop materials (later)
 
 :::
 
@@ -271,6 +272,7 @@ Our live sessions run in **breakout rooms**. You decide how you want to work:
 ### Do your own thing
 
 * Explore your own data, a different model, or the material at your own pace
+* You can leave the meeting if you want to
 * Just come back to the main room when the breakout session ends
 * You can reach us any time via the chat or by joining the help room
 :::
@@ -285,7 +287,6 @@ Our live sessions run in **breakout rooms**. You decide how you want to work:
 3. Otherwise, pick a room yourself from the breakout room list:
     * **Teams**: your own room, once you are matched
     * **Help desk**: the shared help room
-    * **Solo**: work on your own
 4. You can switch rooms at any point. Teams can also split up or merge
 
 **We will announce when the breakout session is about to end. Please come back to the main room then.**

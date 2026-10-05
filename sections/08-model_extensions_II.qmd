@@ -57,7 +57,7 @@ fit <- mlts_fit(
   ts = c("negaff","posaff"),
   group = "group",
   iter = 2000
-)
+  )
 ```
 ```{r}
 #save(fit, file = "06-model_extensions/4.1_MG.Rdata")
@@ -95,9 +95,7 @@ cat(summary_lines[37:58], sep = "\n")
 
 ---
 
-### Multiple-Group Models
-
-#### Group-Comparisons
+### Multiple-Group Models | Group-Comparisons
 
 - Based on the group-specific estimates, we can run comparison tests
 - The procedure to conduct these tests is the same for any model parameter (also random effect variances or random effect correlations)
@@ -105,26 +103,26 @@ cat(summary_lines[37:58], sep = "\n")
 
 - We first extract the posterior draws of the group-specific estimates:
 ```{r}
-#|echo: true
+#| echo: true
 CL_dm = fit$posteriors[,,"dm: phi(1)_12"]
 CL_gi = fit$posteriors[,,"gi: phi(1)_12"]
 ```
 
 - Then, calculate the differences between the group-specific estimates for each draw:
 ```{r}
-#|echo: true
+#| echo: true
 Diff = as.vector( CL_dm - CL_gi )
 ```
 
 - Now, we can calculate summary statistics: 
   - such as the difference parameters' posterior mean, 
 ```{r}
-#|echo: true
+#| echo: true
 mean(Diff)
 ```
   - or a 95% CI to test potential differences with $\alpha = .05$:
 ```{r}
-#|echo: true
+#| echo: true
 quantile(Diff, probs = c(0.025, 0.975))
 ```
 
@@ -136,7 +134,7 @@ quantile(Diff, probs = c(0.025, 0.975))
 - Thus far, we assumed *AR*- or *CL*-effects to be invariant over time
 
 - This assumption can be relaxed or tested, e.g., using **time-varying effects models** [@Bringmann2017]
-  - gradual changes in intercepts, or time-lagged effects over time can be  
+  - gradual changes in intercepts, or time-lagged effects over time  
 
 - Conceptually different: **Moderated VAR models** [@Holtmann2025] as a multilevel extension of single-subject fixed moderated time series analysis [@Adolf2017]
   

@@ -421,7 +421,7 @@ describe_ts(data = bolzen, ts = "negaff")
 # model specification
 model = mlts_model(
   q = 1,
-  censor_left = LB,  # equals 1 (see above)
+  censor_left = 1, (lower scale bound)
 )
 
 # model estimation 
